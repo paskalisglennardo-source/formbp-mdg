@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>BP Creation Form — Wings Group</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          brand: { 50: '#eef6ff', 100: '#d9eaff', 500: '#2563eb', 600: '#1d4ed8', 700: '#1e40af' },
+        }
+      }
+    }
+  }
+</script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+  .field-mandatory > label::after { content: " *"; color: #dc2626; font-weight: 700; }
+  .field-derived input, .field-derived select { background: #ecfdf5 !important; }
+  .field-derived label::after { content: " (auto)"; color: #047857; font-size: 0.7rem; margin-left: 4px; }
+  .section-tab.active { background: #1d4ed8; color: white; }
+  .draft-row:hover { background: #f8fafc; }
+  /* Floating chat panel */
+  #chatPanel { transition: transform 0.25s ease; }
+  #chatPanel.hidden-panel { transform: translateY(calc(100% - 56px)); }
+  .chat-msg-user { background: #2563eb; color: white; align-self: flex-end; }
+  .chat-msg-bot { background: #f1f5f9; color: #0f172a; align-self: flex-start; }
+  .chat-msg { max-width: 85%; padding: 8px 12px; border-radius: 12px; font-size: 0.875rem; line-height: 1.4; word-wrap: break-word; }
+  .pulse-dot { animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%,80%,100% { opacity: 0.3 } 40% { opacity: 1 } }
+  /* Highlight invalid fields */
+  .invalid-field input, .invalid-field select, .invalid-field textarea {
+    border-color: #dc2626 !important; background: #fef2f2 !important;
+  }
+  .field-warning { font-size: 0.75rem; color: #dc2626; margin-top: 2px; }
+  .field-suggestion { font-size: 0.75rem; color: #2563eb; margin-top: 2px; cursor: pointer; }
+  .field-suggestion:hover { text-decoration: underline; }
+</style>
+</head>
+<body class="bg-slate-50 min-h-screen">
+
+<!-- ============== HEADER ============== -->
+<header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 bg-brand-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">BP</div>
+      <div>
+        <h1 class="text-lg font-bold text-slate-800">BP Creation Form</h1>
+        <p class="text-xs text-slate-500">Wings Group · CR Creation Helper</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2 flex-wrap">
+      <button id="settingsBtn" class="px-3 py-2 text-sm bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center gap-1.5">
+        ⚙️ <span class="hidden sm:inline">Settings</span>
+      </button>
+      <button id="loadDraftsBtn" class="px-3 py-2 text-sm bg-slate-100 hover:bg-slate-200 rounded-lg">📂 Load</button>
+      <button id="saveDraftsBtn" class="px-3 py-2 text-sm bg-slate-100 hover:bg-slate-200 rounded-lg">💾 Save</button>
+    </div>
+  </div>
+</header>
+
+<!-- ============== MAIN ============== -->
+<main class="max-w-7xl mx-auto px-4 py-6 pb-32">
+
+  <!-- Step 1: BP Type Selector -->
+  <section id="step1" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+    <h2 class="text-base font-bold text-slate-800 mb-1">Step 1 · Select BP Type</h2>
+    <p class="text-sm text-slate-500 mb-4">Pilih jenis Business Partner yang akan dibuat. Field yang muncul akan menyesuaikan otomatis.</p>
+    <div class="flex gap-3 flex-wrap">
+      <select id="bpTypeSelect" class="flex-1 min-w-[280px] border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
+        <option value="">— Pilih BP Type —</option>
+      </select>
+      <button id="confirmBpType" class="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg disabled:opacity-50" disabled>
+        Continue →
+      </button>
+    </div>
+    <div id="bpTypeInfo" class="hidden mt-4 p-3 bg-brand-50 border border-brand-100 rounded-lg text-sm">
+      <span class="font-semibold text-brand-700"></span>
+    </div>
+  </section>
+
+  <!-- Step 2: Multi-record drafts toolbar -->
+  <section id="step2" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6">
+    <div class="flex items-center justify-between flex-wrap gap-3">
+      <div class="flex items-center gap-3 flex-wrap">
+        <h3 class="text-sm font-semibold text-slate-700">Drafts</h3>
+        <select id="draftSelector" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm min-w-[200px]"></select>
+        <button id="addDraftBtn" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-lg">+ New Vendor/Record</button>
+        <button id="duplicateDraftBtn" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs rounded-lg">Duplicate</button>
+        <button id="deleteDraftBtn" class="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 text-xs rounded-lg">Delete</button>
+      </div>
+      <div class="text-xs text-slate-500" id="draftCounter">0 drafts</div>
+    </div>
+  </section>
+
+  <!-- Step 3: Form sections -->
+  <section id="step3" class="hidden">
+    <!-- Section tabs -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 mb-4 p-2">
+      <div id="sectionTabs" class="flex gap-1 flex-wrap"></div>
+    </div>
+
+    <!-- Form -->
+    <div id="formContainer" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6"></div>
+  </section>
+
+  <!-- Step 4: Submit -->
+  <section id="step4" class="hidden mt-6 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+    <h3 class="text-base font-bold text-slate-800 mb-3">Step 4 · Validate & Submit</h3>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <button id="validateBtn" class="px-4 py-3 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg text-sm">
+        🔍 Validate with AI
+      </button>
+      <button id="downloadXlsxBtn" class="px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg text-sm">
+        📥 Download Template (.xlsx)
+      </button>
+      <button id="emailBtn" class="px-4 py-3 bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-lg text-sm">
+        ✉️ Submit via Email
+      </button>
+      <button id="exportJsonBtn" class="px-4 py-3 bg-slate-700 hover:bg-slate-800 text-white font-medium rounded-lg text-sm">
+        📦 Export Drafts (.json)
+      </button>
+    </div>
+    <div id="validationResults" class="hidden mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200"></div>
+  </section>
+</main>
+
+<!-- ============== FLOATING CHAT (Qwen) ============== -->
+<div id="chatPanel" class="fixed bottom-4 right-4 w-[360px] max-w-[calc(100vw-32px)] bg-white rounded-xl shadow-2xl border border-slate-200 z-40 hidden-panel">
+  <div id="chatHeader" class="px-4 py-3 bg-gradient-to-r from-brand-600 to-brand-700 text-white rounded-t-xl flex items-center justify-between cursor-pointer">
+    <div class="flex items-center gap-2">
+      <div class="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center text-sm font-bold">Q</div>
+      <div>
+        <div class="font-semibold text-sm">Qwen Assistant</div>
+        <div class="text-xs text-white/80">Validation & cleansing helper</div>
+      </div>
+    </div>
+    <button id="chatToggle" class="text-white/90 text-xl">▾</button>
+  </div>
+  <div id="chatBody" class="h-[380px] overflow-y-auto p-3 flex flex-col gap-2 bg-slate-50"></div>
+  <div class="p-3 border-t border-slate-200 bg-white rounded-b-xl">
+    <div class="flex gap-2">
+      <input id="chatInput" type="text" placeholder="Tanya validasi atau bantuan…" class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500">
+      <button id="chatSend" class="px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-sm">→</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div id="settingsModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-xl max-w-md w-full p-6">
+    <h3 class="text-lg font-bold mb-4">Settings</h3>
+    <label class="block text-sm font-medium text-slate-700 mb-1">Cloudflare Worker URL (Qwen)</label>
+    <input id="workerUrlInput" type="text" placeholder="https://your-worker.workers.dev" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mb-3">
+    <label class="block text-sm font-medium text-slate-700 mb-1">Submit Email (Default Recipient)</label>
+    <input id="submitEmailInput" type="email" placeholder="bp-creation@wings.co.id" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mb-3">
+    <label class="block text-sm font-medium text-slate-700 mb-1">Requestor Name</label>
+    <input id="requestorNameInput" type="text" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mb-4">
+    <div class="flex gap-2 justify-end">
+      <button id="settingsClose" class="px-4 py-2 text-sm bg-slate-100 hover:bg-slate-200 rounded-lg">Cancel</button>
+      <button id="settingsSave" class="px-4 py-2 text-sm bg-brand-600 hover:bg-brand-700 text-white rounded-lg">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- File loader (hidden) -->
+<input type="file" id="loadFileInput" accept=".json" class="hidden">
+
+<!-- ============== SCRIPT ============== -->
+<script>
+// =====================================================================
+// GLOBAL STATE
+// =====================================================================
+const STATE = {
+  formData: null,            // form_data.json (loaded async)
+  bpType: null,              // currently selected BP type
+  drafts: [],                // array of draft records (one per vendor)
+  currentDraftIdx: 0,
+  currentSection: null,
+  settings: {
+    workerUrl: localStorage.getItem('bpf_workerUrl') || '',
+    submitEmail: localStorage.getItem('bpf_submitEmail') || 'bp-creation@wings.co.id',
+    requestorName: localStorage.getItem('bpf_requestorName') || '',
+  },
+};
+
+// =====================================================================
+// UTILITIES
+// =====================================================================
+const $ = (id) => document.getElementById(id);
+const headerToFieldName = (header) => {
+  // Convert template column header to snake_case field name to match m_map_field
+  // "House Number" -> "house_number", "Prefix Name" -> "prefix_name"
+  // Special mappings observed:
+  const overrides = {
+    'House Number': 'no',
+    'Address (Full)': 'address',
+    'Sales Org.': 'sales_org',
+    'Distr. Channel': 'distribution_channel',
+    'Cust.Pric.Proc': 'cust_pric_proc',
+  };
+  if (overrides[header]) return overrides[header];
+  return header.toLowerCase()
+    .replace(/[\[\]\(\)\.]/g,'')
+    .replace(/[^a-z0-9]+/g,'_')
+    .replace(/^_+|_+$/g,'');
+};
+
+const escapeHtml = (s) => String(s ?? '')
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+
+// =====================================================================
+// LOAD form_data.json
+// =====================================================================
+async function loadFormData() {
+  try {
+    const r = await fetch('form_data.json');
+    if (!r.ok) throw new Error('Failed to load form_data.json');
+    STATE.formData = await r.json();
+    initBpTypeSelector();
+  } catch (e) {
+    document.body.innerHTML = `<div class="p-8 text-center"><h2 class="text-xl font-bold text-red-600">Error loading form_data.json</h2><p class="mt-2 text-slate-600">Pastikan <code>form_data.json</code> ada di folder yang sama dengan <code>index.html</code>.</p><pre class="mt-4 text-xs bg-slate-100 p-3 rounded">${escapeHtml(e.message)}</pre></div>`;
+  }
+}
+
+// =====================================================================
+// STEP 1: BP TYPE SELECTOR
+// =====================================================================
+function initBpTypeSelector() {
+  const sel = $('bpTypeSelect');
+  const bpTypes = STATE.formData.bp_types;
+  // Group by family (ZA, ZB, ZC...)
+  const groups = {};
+  Object.entries(bpTypes).forEach(([id, meta]) => {
+    const family = id.substring(0,2);
+    if (!groups[family]) groups[family] = [];
+    groups[family].push({ id, ...meta });
+  });
+  Object.entries(groups).sort().forEach(([family, items]) => {
+    const og = document.createElement('optgroup');
+    og.label = `${family} — ${items.length} types`;
+    items.sort((a,b)=>a.id.localeCompare(b.id)).forEach(it => {
+      const opt = document.createElement('option');
+      opt.value = it.id;
+      opt.textContent = `${it.id} · ${it.description}`;
+      og.appendChild(opt);
+    });
+    sel.appendChild(og);
+  });
+
+  sel.addEventListener('change', () => {
+    $('confirmBpType').disabled = !sel.value;
+    if (sel.value) {
+      const meta = bpTypes[sel.value];
+      const info = $('bpTypeInfo');
+      info.classList.remove('hidden');
+      info.querySelector('span').textContent = `${sel.value} — ${meta.description} (${meta.cr_type})`;
+    } else {
+      $('bpTypeInfo').classList.add('hidden');
+    }
+  });
+
+  $('confirmBpType').addEventListener('click', () => {
+    STATE.bpType = sel.value;
+    initWorkspace();
+  });
+}
+
+// =====================================================================
+// WORKSPACE INIT
+// =====================================================================
+function initWorkspace() {
+  $('step2').classList.remove('hidden');
+  $('step3').classList.remove('hidden');
+  $('step4').classList.remove('hidden');
+  // Create first draft if none
+  if (STATE.drafts.length === 0) addDraft();
+  buildSectionTabs();
+  buildDraftSelector();
+  // Pick first section
+  const sections = STATE.formData.section_order;
+  STATE.currentSection = sections[0];
+  renderForm();
+  // Greeting in chat
+  pushBotMessage(`Halo! Saya akan bantu validasi pengisian BP Type **${STATE.bpType}** (${STATE.formData.bp_types[STATE.bpType].description}). Klik "Validate with AI" sebelum submit, atau tanya saya kapan saja.`);
+}
+
+// =====================================================================
+// DRAFTS (multi-record)
+// =====================================================================
+function blankDraft() {
+  const d = { _label: `Vendor ${STATE.drafts.length + 1}`, sections: {} };
+  for (const sec of STATE.formData.section_order) d.sections[sec] = {};
+  // Apply stepper defaults to general_view
+  for (const [k,v] of Object.entries(STATE.formData.stepper_defaults || {})) {
+    if (v) d.sections.general_view[k] = v;
+  }
+  return d;
+}
+
+function addDraft() {
+  STATE.drafts.push(blankDraft());
+  STATE.currentDraftIdx = STATE.drafts.length - 1;
+  buildDraftSelector();
+  renderForm();
+}
+
+function buildDraftSelector() {
+  const sel = $('draftSelector');
+  sel.innerHTML = '';
+  STATE.drafts.forEach((d, i) => {
+    // Use Name 1 if filled, else label
+    const name1 = d.sections?.general_view?.name_1_commercial_name || d._label;
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = `${i+1}. ${name1}`;
+    if (i === STATE.currentDraftIdx) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  $('draftCounter').textContent = `${STATE.drafts.length} draft${STATE.drafts.length>1?'s':''}`;
+}
+
+$('addDraftBtn').addEventListener('click', addDraft);
+$('duplicateDraftBtn').addEventListener('click', () => {
+  if (!STATE.drafts.length) return;
+  const copy = JSON.parse(JSON.stringify(STATE.drafts[STATE.currentDraftIdx]));
+  copy._label = (copy._label || 'Vendor') + ' (copy)';
+  STATE.drafts.push(copy);
+  STATE.currentDraftIdx = STATE.drafts.length - 1;
+  buildDraftSelector(); renderForm();
+});
+$('deleteDraftBtn').addEventListener('click', () => {
+  if (STATE.drafts.length <= 1) { alert('Minimal harus ada 1 draft.'); return; }
+  if (!confirm('Hapus draft ini?')) return;
+  STATE.drafts.splice(STATE.currentDraftIdx, 1);
+  STATE.currentDraftIdx = Math.max(0, STATE.currentDraftIdx - 1);
+  buildDraftSelector(); renderForm();
+});
+document.addEventListener('change', (e) => {
+  if (e.target.id === 'draftSelector') {
+    STATE.currentDraftIdx = parseInt(e.target.value, 10);
+    renderForm();
+  }
+});
+
+// =====================================================================
+// SECTION TABS
+// =====================================================================
+function buildSectionTabs() {
+  const wrap = $('sectionTabs');
+  wrap.innerHTML = '';
+  STATE.formData.section_order.forEach(sec => {
+    // Only show sections that have any visible field for this BP type
+    const visible = visibleFieldsForSection(sec);
+    if (visible.length === 0) return;
+    const btn = document.createElement('button');
+    btn.className = 'section-tab px-3 py-2 text-xs font-medium rounded-lg hover:bg-slate-100 text-slate-700';
+    btn.textContent = STATE.formData.section_display[sec] || sec;
+    btn.dataset.section = sec;
+    btn.addEventListener('click', () => {
+      STATE.currentSection = sec;
+      document.querySelectorAll('.section-tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      renderForm();
+    });
+    wrap.appendChild(btn);
+  });
+  // Activate first
+  const first = wrap.querySelector('.section-tab');
+  if (first) { first.classList.add('active'); STATE.currentSection = first.dataset.section; }
+}
+
+function visibleFieldsForSection(section) {
+  // Cross-reference: template columns ∩ field_map for this BP type
+  const cols = STATE.formData.sections_schema[section] || [];
+  const bpFields = STATE.formData.field_map[STATE.bpType]?.[section] || {};
+  const out = [];
+  for (const col of cols) {
+    if (col.label === 'id') continue; // skip technical id column
+    const fname = headerToFieldName(col.label);
+    // A column is visible if EITHER it's in the BP's field_map OR it has a derived/default value
+    const inMap = bpFields[fname] !== undefined;
+    const isDerived = col.default?.type === 'formula' || col.default?.type === 'default';
+    if (inMap || isDerived) {
+      out.push({
+        col,
+        field_name: fname,
+        mapping: bpFields[fname] || null,
+        is_derived: col.default?.type === 'formula',
+        has_default: col.default?.type === 'default',
+      });
+    }
+  }
+  return out;
+}
+
+// =====================================================================
+// FORM RENDERING
+// =====================================================================
+function renderForm() {
+  const sec = STATE.currentSection;
+  if (!sec) return;
+  const container = $('formContainer');
+  const fields = visibleFieldsForSection(sec);
+  const draft = STATE.drafts[STATE.currentDraftIdx];
+
+  let html = `<div class="mb-4">
+    <h3 class="text-base font-bold text-slate-800">${escapeHtml(STATE.formData.section_display[sec] || sec)}</h3>
+    <p class="text-xs text-slate-500 mt-1">${fields.length} fields · <span class="text-red-600">*</span> = mandatory · <span class="text-emerald-700">green</span> = auto-derived</p>
+  </div>`;
+
+  if (fields.length === 0) {
+    html += `<p class="text-sm text-slate-500 italic">Tidak ada field untuk section ini pada BP Type ${STATE.bpType}.</p>`;
+    container.innerHTML = html;
+    return;
+  }
+
+  html += `<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">`;
+  for (const f of fields) {
+    html += renderField(sec, f, draft);
+  }
+  html += `</div>`;
+
+  // Section navigation
+  const allSections = STATE.formData.section_order.filter(s => visibleFieldsForSection(s).length > 0);
+  const idx = allSections.indexOf(sec);
+  html += `<div class="flex justify-between mt-6 pt-4 border-t border-slate-200">
+    <button id="prevSec" class="px-4 py-2 text-sm bg-slate-100 hover:bg-slate-200 rounded-lg ${idx<=0?'invisible':''}">← Previous</button>
+    <span class="text-xs text-slate-500 self-center">Section ${idx+1} of ${allSections.length}</span>
+    <button id="nextSec" class="px-4 py-2 text-sm bg-brand-600 hover:bg-brand-700 text-white rounded-lg ${idx>=allSections.length-1?'invisible':''}">Next →</button>
+  </div>`;
+
+  container.innerHTML = html;
+
+  // Bind input handlers
+  container.querySelectorAll('[data-field]').forEach(el => {
+    el.addEventListener('input', onFieldChange);
+    el.addEventListener('change', onFieldChange);
+  });
+  // Section nav
+  $('prevSec')?.addEventListener('click', () => { STATE.currentSection = allSections[idx-1]; switchTab(); });
+  $('nextSec')?.addEventListener('click', () => { STATE.currentSection = allSections[idx+1]; switchTab(); });
+}
+
+function switchTab() {
+  document.querySelectorAll('.section-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.section === STATE.currentSection);
+  });
+  renderForm();
+}
+
+function renderField(section, f, draft) {
+  const val = draft.sections[section]?.[f.field_name] ?? '';
+  const isMandatory = f.mapping?.mandatory || false;
+  const isDerived = f.is_derived;
+  const fieldId = `f_${section}_${f.field_name}`;
+  const wrapClasses = ['field-wrap'];
+  if (isMandatory) wrapClasses.push('field-mandatory');
+  if (isDerived) wrapClasses.push('field-derived');
+
+  // Try to find a dropdown LOV that matches this field's label
+  const lovKey = matchLovKey(f.col.label);
+  const lov = lovKey ? STATE.formData.dropdown_lov[lovKey] : null;
+  // Or dv_data
+  const dvKey = matchDvKey(f.col.label);
+  const dvOptions = dvKey ? STATE.formData.dv_data[dvKey] : null;
+
+  let inputHtml = '';
+  if (lov && lov.length) {
+    inputHtml = `<select id="${fieldId}" data-field="${f.field_name}" data-section="${section}" class="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-brand-500">
+      <option value="">— pilih —</option>
+      ${lov.map(o => `<option value="${escapeHtml(o.id)}" ${val===o.id?'selected':''}>${escapeHtml(o.id)} — ${escapeHtml(o.desc)}</option>`).join('')}
+    </select>`;
+  } else if (dvOptions && dvOptions.length) {
+    inputHtml = `<select id="${fieldId}" data-field="${f.field_name}" data-section="${section}" class="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-brand-500">
+      <option value="">— pilih —</option>
+      ${dvOptions.map(o => `<option value="${escapeHtml(o)}" ${val===o?'selected':''}>${escapeHtml(o)}</option>`).join('')}
+    </select>`;
+  } else {
+    // Heuristic input type
+    let type = 'text';
+    const lower = f.col.label.toLowerCase();
+    if (lower.includes('email')) type = 'email';
+    else if (lower.includes('phone') || lower.includes('telephone') || lower.includes('fax')) type = 'tel';
+    else if (lower.includes('valid from') || lower.includes('valid to') || lower.includes('date')) type = 'date';
+    inputHtml = `<input id="${fieldId}" type="${type}" data-field="${f.field_name}" data-section="${section}" value="${escapeHtml(val)}" ${isDerived?'readonly':''} class="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-brand-500">`;
+  }
+
+  // Helper note
+  let note = '';
+  if (isDerived) {
+    note = `<div class="text-[10px] text-emerald-700 mt-0.5">Auto-derived: ${escapeHtml(f.col.default.value)}</div>`;
+  } else if (f.has_default) {
+    note = `<div class="text-[10px] text-slate-500 mt-0.5">Default: ${escapeHtml(f.col.default.value)}</div>`;
+  }
+
+  return `<div class="${wrapClasses.join(' ')}" id="wrap_${fieldId}">
+    <label for="${fieldId}" class="block text-xs font-medium text-slate-700 mb-1">${escapeHtml(f.col.label)}</label>
+    ${inputHtml}
+    ${note}
+    <div class="field-warning hidden" id="warn_${fieldId}"></div>
+  </div>`;
+}
+
+function matchLovKey(label) {
+  const lov = STATE.formData.dropdown_lov;
+  // Direct match
+  if (lov[label]) return label;
+  // Case-insensitive
+  const lc = label.toLowerCase();
+  for (const k of Object.keys(lov)) {
+    if (k.toLowerCase() === lc) return k;
+    // Partial: e.g. "Sales Org. [M]" vs "Sales Organization"
+    if (k.toLowerCase().includes(lc) || lc.includes(k.toLowerCase())) return k;
+  }
+  return null;
+}
+function matchDvKey(label) {
+  const dv = STATE.formData.dv_data || {};
+  if (dv[label]) return label;
+  const lc = label.toLowerCase();
+  for (const k of Object.keys(dv)) {
+    if (k.toLowerCase() === lc) return k;
+  }
+  return null;
+}
+
+function onFieldChange(e) {
+  const sec = e.target.dataset.section;
+  const fname = e.target.dataset.field;
+  STATE.drafts[STATE.currentDraftIdx].sections[sec][fname] = e.target.value;
+  // Update draft selector label if name1 changed
+  if (fname === 'name_1_commercial_name' || fname === 'name1') buildDraftSelector();
+  // Live single-field validation
+  liveValidate(e.target);
+}
+
+// =====================================================================
+// VALIDATION (local rules + Qwen)
+// =====================================================================
+function liveValidate(el) {
+  const fname = el.dataset.field;
+  const val = el.value;
+  const wrap = $('wrap_f_' + el.dataset.section + '_' + fname);
+  const warn = $('warn_f_' + el.dataset.section + '_' + fname);
+  if (!wrap || !warn) return;
+  let msg = '';
+  const rules = STATE.formData.validation_rules;
+  if (val) {
+    if ((fname.includes('phone') || fname.includes('telephone')) && !new RegExp(rules.phone.pattern).test(val.replace(/\s/g,''))) {
+      msg = 'Format: 081xxx atau +6281xxx';
+    } else if (fname.includes('email') && !new RegExp(rules.email.pattern).test(val)) {
+      msg = 'Format email tidak valid';
+    } else if (fname.includes('npwp') && !new RegExp(rules.npwp.pattern).test(val.replace(/\D/g,''))) {
+      msg = 'NPWP harus 15 atau 16 digit';
+    } else if (fname === 'ktp_number' && !new RegExp(rules.ktp.pattern).test(val.replace(/\D/g,''))) {
+      msg = 'KTP/NIK harus 16 digit';
+    } else if (fname.includes('postal') && !new RegExp(rules.postal_code.pattern).test(val)) {
+      msg = 'Kode pos harus 5 digit';
+    } else if ((fname === 'rt' || fname === 'rw') && !new RegExp(rules.rt_rw.pattern).test(val)) {
+      msg = 'RT/RW: 1-3 digit';
+    }
+  }
+  if (msg) {
+    wrap.classList.add('invalid-field');
+    warn.textContent = msg;
+    warn.classList.remove('hidden');
+  } else {
+    wrap.classList.remove('invalid-field');
+    warn.classList.add('hidden');
+  }
+}
+
+function localValidateAll() {
+  const issues = [];
+  const draft = STATE.drafts[STATE.currentDraftIdx];
+  for (const sec of STATE.formData.section_order) {
+    const fields = visibleFieldsForSection(sec);
+    for (const f of fields) {
+      const val = draft.sections[sec]?.[f.field_name] || '';
+      // Mandatory check
+      if (f.mapping?.mandatory && !val && !f.is_derived) {
+        issues.push({ section: sec, field: f.col.label, severity: 'error', msg: 'Field wajib diisi' });
+      }
+    }
+  }
+  return issues;
+}
+
+// Apply cleansing rules locally (returns modified value)
+function applyCleansing(field_name, value) {
+  if (!value) return value;
+  const cr = STATE.formData.cleansing_rules;
+  let out = value;
+  if (field_name.includes('name') || field_name === 'name1' || field_name === 'name_1_commercial_name') {
+    for (const r of cr.name.replacements) out = out.replace(new RegExp(r.from, 'gi'), r.to);
+  }
+  if (field_name.includes('address') || field_name === 'street' || field_name === 'jalan') {
+    for (const r of cr.address.replacements) out = out.replace(new RegExp(r.from, 'gi'), r.to);
+  }
+  if (field_name.includes('phone') || field_name.includes('telephone')) {
+    for (const r of cr.phone.replacements) out = out.replace(new RegExp(r.from, 'g'), r.to);
+  }
+  return out.trim();
+}
+
+// =====================================================================
+// QWEN CHAT
+// =====================================================================
+function pushUserMessage(text) {
+  const div = document.createElement('div');
+  div.className = 'chat-msg chat-msg-user';
+  div.textContent = text;
+  $('chatBody').appendChild(div);
+  $('chatBody').scrollTop = $('chatBody').scrollHeight;
+}
+function pushBotMessage(text) {
+  const div = document.createElement('div');
+  div.className = 'chat-msg chat-msg-bot';
+  div.innerHTML = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g,'<br>');
+  $('chatBody').appendChild(div);
+  $('chatBody').scrollTop = $('chatBody').scrollHeight;
+}
+function pushTypingIndicator() {
+  const div = document.createElement('div');
+  div.className = 'chat-msg chat-msg-bot';
+  div.id = 'typing';
+  div.innerHTML = '<span class="pulse-dot">●</span> <span class="pulse-dot" style="animation-delay:0.2s">●</span> <span class="pulse-dot" style="animation-delay:0.4s">●</span>';
+  $('chatBody').appendChild(div);
+  $('chatBody').scrollTop = $('chatBody').scrollHeight;
+}
+function removeTypingIndicator() { $('typing')?.remove(); }
+
+async function callQwen(messages, systemPrompt) {
+  if (!STATE.settings.workerUrl) {
+    return { error: 'Worker URL belum diset. Buka Settings dan masukkan URL Cloudflare Worker Anda.' };
+  }
+  try {
+    const r = await fetch(STATE.settings.workerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages, system: systemPrompt }),
+    });
+    if (!r.ok) return { error: `HTTP ${r.status}: ${await r.text()}` };
+    const j = await r.json();
+    return { text: j.response || j.text || j.result?.response || JSON.stringify(j) };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+$('chatHeader').addEventListener('click', (e) => {
+  if (e.target.id !== 'chatToggle' && e.target.tagName !== 'BUTTON') {
+    $('chatPanel').classList.toggle('hidden-panel');
+  }
+});
+$('chatToggle').addEventListener('click', (e) => {
+  e.stopPropagation();
+  $('chatPanel').classList.toggle('hidden-panel');
+});
+$('chatSend').addEventListener('click', sendChat);
+$('chatInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
+
+async function sendChat() {
+  const input = $('chatInput');
+  const text = input.value.trim();
+  if (!text) return;
+  pushUserMessage(text);
+  input.value = '';
+  pushTypingIndicator();
+  // Build context: current draft summary
+  const draft = STATE.drafts[STATE.currentDraftIdx];
+  const summary = JSON.stringify(draft.sections.general_view || {}, null, 2);
+  const sys = `Anda adalah asisten validasi pengisian form Business Partner (BP) untuk Wings Group SAP MDG. Gunakan bahasa Indonesia. BP Type aktif: ${STATE.bpType} (${STATE.formData.bp_types[STATE.bpType].description}). Berikan saran ringkas dan praktis. Saat memvalidasi nama: gunakan prefix legal yang tepat (PT, CV, UD, Tk, Wr). Saat memvalidasi alamat: gunakan singkatan Jl, Blk, No, RT, RW. Saat memvalidasi telepon: format Indonesia +62 atau 08xxx (10-13 digit). Data draft saat ini (general_view): ${summary}`;
+  const res = await callQwen([{ role: 'user', content: text }], sys);
+  removeTypingIndicator();
+  if (res.error) pushBotMessage(`⚠️ ${res.error}`);
+  else pushBotMessage(res.text);
+}
+
+// =====================================================================
+// VALIDATE BUTTON
+// =====================================================================
+$('validateBtn').addEventListener('click', async () => {
+  const localIssues = localValidateAll();
+  const box = $('validationResults');
+  box.classList.remove('hidden');
+  let html = `<h4 class="font-bold text-sm text-slate-800 mb-2">Validation Results</h4>`;
+  if (localIssues.length === 0) {
+    html += `<p class="text-sm text-emerald-700">✅ Semua field mandatory sudah terisi.</p>`;
+  } else {
+    html += `<div class="space-y-1 mb-3">`;
+    for (const i of localIssues.slice(0, 20)) {
+      html += `<div class="text-xs text-red-700">• <strong>${escapeHtml(STATE.formData.section_display[i.section])}</strong> → ${escapeHtml(i.field)}: ${i.msg}</div>`;
+    }
+    if (localIssues.length > 20) html += `<div class="text-xs text-slate-500">… dan ${localIssues.length-20} lagi</div>`;
+    html += `</div>`;
+  }
+  html += `<div class="text-xs text-slate-500">Memanggil Qwen untuk validasi semantik…</div>`;
+  box.innerHTML = html;
+
+  // Call Qwen
+  const draft = STATE.drafts[STATE.currentDraftIdx];
+  const payload = {
+    bp_type: STATE.bpType,
+    bp_description: STATE.formData.bp_types[STATE.bpType].description,
+    sections: draft.sections,
+  };
+  const sys = `Anda adalah validator form BP Wings Group. Periksa data berikut dan kembalikan list issue dalam format ringkas (1 baris per issue) untuk: format nama (gunakan prefix PT/CV/UD/Tk/Wr yang sesuai), format alamat (gunakan Jl/Blk/No/RT/RW), format telepon (+62 atau 08xxx), format email, NPWP (15-16 digit), KTP (16 digit). Jika sudah benar, jawab "Semua format sudah benar." Gunakan bahasa Indonesia.`;
+  const res = await callQwen([{ role: 'user', content: 'Validasi data BP berikut:\n\n' + JSON.stringify(payload, null, 2) }], sys);
+  if (res.error) {
+    box.innerHTML += `<div class="mt-2 text-xs text-amber-700">⚠️ Qwen tidak tersedia: ${escapeHtml(res.error)}. Validasi lokal tetap berjalan.</div>`;
+  } else {
+    box.innerHTML += `<div class="mt-3 p-3 bg-white border border-slate-200 rounded text-xs whitespace-pre-wrap">${escapeHtml(res.text)}</div>`;
+  }
+});
+
+// =====================================================================
+// DOWNLOAD AS XLSX (matches Template_CR_Creation_*.xlsx structure)
+// =====================================================================
+$('downloadXlsxBtn').addEventListener('click', () => {
+  buildAndDownloadXlsx();
+});
+
+function buildAndDownloadXlsx() {
+  const fd = STATE.formData;
+  const bp = STATE.bpType;
+  const wb = XLSX.utils.book_new();
+
+  // sheet_control
+  const sc = [
+    ['BP TYPE', bp],
+    ['CR TYPE', fd.bp_types[bp].cr_type || 'CR01'],
+    ['DESCRIPTION', fd.bp_types[bp].description],
+    ['NOTE', 'Generated by BP Creation Form (web). Yellow=dropdown, Green=derived, White=input.'],
+  ];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sc), 'sheet_control');
+
+  // Dropdown_LOV: rebuild as 3-column groups
+  const lovEntries = Object.entries(fd.dropdown_lov);
+  const lovHeader = [];
+  const maxLovRows = Math.max(...lovEntries.map(([_,v]) => v.length));
+  for (let i = 0; i < lovEntries.length; i++) lovHeader.push('Field Name','ID','Description');
+  const lovAoa = [lovHeader];
+  for (let r = 0; r < maxLovRows; r++) {
+    const row = [];
+    for (const [field, opts] of lovEntries) {
+      row.push(r === 0 ? field : '');
+      row.push(opts[r]?.id ?? '');
+      row.push(opts[r]?.desc ?? '');
+    }
+    lovAoa.push(row);
+  }
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(lovAoa), 'Dropdown_LOV');
+
+  // Each section sheet — write headers + 50 data rows (drafts + blank rows)
+  for (const sec of fd.section_order) {
+    const cols = fd.sections_schema[sec];
+    if (!cols || cols.length === 0) continue;
+    const headerRow = cols.map(c => c.header);
+    const aoa = [headerRow];
+
+    // Write up to 50 rows
+    for (let r = 0; r < 50; r++) {
+      const draft = STATE.drafts[r];
+      const row = [];
+      for (let cIdx = 0; cIdx < cols.length; cIdx++) {
+        const col = cols[cIdx];
+        // id column → formula
+        if (col.label === 'id') {
+          row.push({ f: rewriteFormula(col.default.value, r + 2) });
+          continue;
+        }
+        const fname = headerToFieldName(col.label);
+        const val = draft?.sections?.[sec]?.[fname];
+        if (val !== undefined && val !== '' && val !== null) {
+          // Apply cleansing for clean export
+          row.push(applyCleansing(fname, val));
+        } else if (col.default?.type === 'formula') {
+          row.push({ f: rewriteFormula(col.default.value, r + 2) });
+        } else if (col.default?.type === 'default') {
+          row.push(col.default.value);
+        } else {
+          row.push('');
+        }
+      }
+      aoa.push(row);
+    }
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    XLSX.utils.book_append_sheet(wb, ws, sec);
+  }
+
+  // _dv_data
+  const dvEntries = Object.entries(fd.dv_data);
+  if (dvEntries.length) {
+    const dvHeaders = dvEntries.map(([k]) => k);
+    const maxDv = Math.max(...dvEntries.map(([_,v]) => v.length));
+    const dvAoa = [dvHeaders];
+    for (let r = 0; r < maxDv; r++) {
+      dvAoa.push(dvEntries.map(([_,v]) => v[r] ?? ''));
+    }
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dvAoa), '_dv_data');
+  }
+
+  XLSX.writeFile(wb, `Template_CR_Creation_${bp}_filled_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// Rewrite formula references from row 2 to actual row N
+function rewriteFormula(f, targetRow) {
+  if (!f.startsWith('=')) return f;
+  // Replace cell refs like A2, D2, general_view!D2 with targetRow
+  return f.substring(1).replace(/([A-Za-z_]+!)?(\$?)([A-Z]+)(\$?)2(?!\d)/g, (m, sheet, abs1, col, abs2) => {
+    return `${sheet||''}${abs1}${col}${abs2}${targetRow}`;
+  });
+}
+
+// =====================================================================
+// SUBMIT VIA EMAIL
+// =====================================================================
+$('emailBtn').addEventListener('click', () => {
+  const issues = localValidateAll();
+  if (issues.length > 0) {
+    if (!confirm(`Masih ada ${issues.length} field mandatory yang kosong. Tetap submit?`)) return;
+  }
+  const fd = STATE.formData;
+  const bp = STATE.bpType;
+  const subject = encodeURIComponent(`[BP Creation] ${bp} - ${fd.bp_types[bp].description} - ${STATE.drafts.length} record(s)`);
+  let body = `Halo Tim BP Creation,\n\nMohon dibantu create BP berikut:\n\n`;
+  body += `BP Type: ${bp} (${fd.bp_types[bp].description})\n`;
+  body += `CR Type: ${fd.bp_types[bp].cr_type}\n`;
+  body += `Total Records: ${STATE.drafts.length}\n`;
+  body += `Requestor: ${STATE.settings.requestorName || '-'}\n\n`;
+  STATE.drafts.forEach((d, i) => {
+    const gv = d.sections.general_view || {};
+    body += `${i+1}. ${gv.name_1_commercial_name || gv.name1 || '(no name)'}\n`;
+    if (gv.npwp_number || gv.npwp) body += `   NPWP: ${gv.npwp_number || gv.npwp}\n`;
+    if (gv.address) body += `   Address: ${gv.address}\n`;
+  });
+  body += `\nFile xlsx terlampir (silakan attach hasil download dari aplikasi).\n\nTerima kasih.`;
+  const mailto = `mailto:${STATE.settings.submitEmail}?subject=${subject}&body=${encodeURIComponent(body)}`;
+  // Also trigger xlsx download for attachment
+  buildAndDownloadXlsx();
+  setTimeout(() => { window.location.href = mailto; }, 500);
+});
+
+// =====================================================================
+// EXPORT / LOAD DRAFTS (JSON)
+// =====================================================================
+$('exportJsonBtn').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify({
+    bp_type: STATE.bpType,
+    drafts: STATE.drafts,
+    exported_at: new Date().toISOString(),
+  }, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `bp_drafts_${STATE.bpType}_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+$('saveDraftsBtn').addEventListener('click', () => {
+  if (!STATE.bpType) { alert('Pilih BP Type dulu.'); return; }
+  localStorage.setItem('bpf_lastDrafts', JSON.stringify({ bp: STATE.bpType, drafts: STATE.drafts }));
+  alert('Tersimpan ke browser ✓');
+});
+
+$('loadDraftsBtn').addEventListener('click', () => {
+  const saved = localStorage.getItem('bpf_lastDrafts');
+  if (saved) {
+    if (confirm('Load drafts dari browser storage?')) {
+      const obj = JSON.parse(saved);
+      STATE.bpType = obj.bp;
+      STATE.drafts = obj.drafts;
+      STATE.currentDraftIdx = 0;
+      $('bpTypeSelect').value = obj.bp;
+      $('bpTypeSelect').dispatchEvent(new Event('change'));
+      initWorkspace();
+      return;
+    }
+  }
+  $('loadFileInput').click();
+});
+$('loadFileInput').addEventListener('change', (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const obj = JSON.parse(reader.result);
+      STATE.bpType = obj.bp_type;
+      STATE.drafts = obj.drafts;
+      STATE.currentDraftIdx = 0;
+      $('bpTypeSelect').value = obj.bp_type;
+      $('bpTypeSelect').dispatchEvent(new Event('change'));
+      initWorkspace();
+    } catch (e) { alert('File tidak valid: ' + e.message); }
+  };
+  reader.readAsText(f);
+});
+
+// =====================================================================
+// SETTINGS
+// =====================================================================
+$('settingsBtn').addEventListener('click', () => {
+  $('workerUrlInput').value = STATE.settings.workerUrl;
+  $('submitEmailInput').value = STATE.settings.submitEmail;
+  $('requestorNameInput').value = STATE.settings.requestorName;
+  $('settingsModal').classList.remove('hidden');
+});
+$('settingsClose').addEventListener('click', () => $('settingsModal').classList.add('hidden'));
+$('settingsSave').addEventListener('click', () => {
+  STATE.settings.workerUrl = $('workerUrlInput').value.trim();
+  STATE.settings.submitEmail = $('submitEmailInput').value.trim();
+  STATE.settings.requestorName = $('requestorNameInput').value.trim();
+  localStorage.setItem('bpf_workerUrl', STATE.settings.workerUrl);
+  localStorage.setItem('bpf_submitEmail', STATE.settings.submitEmail);
+  localStorage.setItem('bpf_requestorName', STATE.settings.requestorName);
+  $('settingsModal').classList.add('hidden');
+});
+
+// =====================================================================
+// BOOT
+// =====================================================================
+loadFormData();
+</script>
+</body>
+</html>
