@@ -1,0 +1,2546 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BP Creation Form — Wings Group</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  .field-derived { background: #ecfdf5 !important; border-color: #6ee7b7 !important; }
+  .field-error  { border-color: #ef4444 !important; box-shadow: 0 0 0 1px #ef4444; }
+  .tab-active   { background: #1e40af; color: white; }
+  .tab-inactive { background: #f1f5f9; color: #334155; }
+  .badge-m { background:#dc2626; color:white; padding:1px 6px; border-radius:9999px; font-size:10px; font-weight:700; }
+  .badge-o { background:#94a3b8; color:white; padding:1px 6px; border-radius:9999px; font-size:10px; font-weight:700; }
+  .badge-d { background:#10b981; color:white; padding:1px 6px; border-radius:9999px; font-size:10px; font-weight:700; }
+  .yeni-bubble { animation: bounce-in 0.4s ease-out; }
+  @keyframes bounce-in { 0%{transform:scale(0.5);opacity:0} 60%{transform:scale(1.05);opacity:1} 100%{transform:scale(1)} }
+  .typing-dot { animation: blink 1.4s infinite both; }
+  .typing-dot:nth-child(2){ animation-delay: 0.2s; }
+  .typing-dot:nth-child(3){ animation-delay: 0.4s; }
+  @keyframes blink { 0%,80%,100%{opacity:0.2} 40%{opacity:1} }
+  details>summary{ list-style:none; cursor:pointer; }
+  details>summary::-webkit-details-marker{ display:none; }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+
+<!-- ============ HEADER ============ -->
+<header class="bg-gradient-to-r from-blue-800 to-blue-600 text-white shadow-lg">
+  <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold">BP Creation Form</h1>
+      <p class="text-xs text-blue-100">Wings Group — Business Partner Master Data Request</p>
+    </div>
+    <div class="flex gap-2">
+      <button id="btnSettings" class="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-md text-sm">⚙️ Settings</button>
+      <button id="btnImport" class="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-md text-sm">📂 Load Drafts</button>
+      <button id="btnExportJson" class="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-md text-sm">💾 Save Drafts</button>
+    </div>
+  </div>
+</header>
+
+<!-- ============ MAIN ============ -->
+<main class="max-w-7xl mx-auto px-4 py-6">
+
+  <!-- Step -1: Email setup gate (shown before everything if emails not yet set) -->
+  <section id="step-email-setup" class="hidden bg-white rounded-xl shadow-sm p-6 mb-6 max-w-2xl mx-auto">
+    <h2 class="text-lg font-bold mb-2">Setup Awal — Email Tujuan</h2>
+    <p class="text-xs text-slate-500 mb-4">Sebelum mulai, isi email tujuan submit dan CC. Data ini disimpan di browser kamu dan tidak ditanya lagi setiap login. Bisa diubah lewat ⚙️ Settings.</p>
+    <div class="space-y-3">
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Email Tujuan Submit <span class="text-red-600">*</span></label>
+        <input id="gateSubmitEmail" type="email" placeholder="bp-creation@wings.co.id" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">CC Email <span class="text-red-600">*</span></label>
+        <input id="gateCcEmail" type="email" placeholder="manager@wings.co.id" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Nama Requestor</label>
+        <input id="gateRequestor" type="text" placeholder="Glenn Surya" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+      </div>
+    </div>
+    <div id="gateError" class="text-xs text-red-600 mt-2 hidden"></div>
+    <button id="btnGateContinue" class="mt-4 w-full bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-md text-sm font-medium">Lanjut →</button>
+  </section>
+
+  <!-- Step 0: Mode picker (Create vs Extend) -->
+  <section id="step-mode" class="bg-white rounded-xl shadow-sm p-6 mb-6">
+    <h2 class="text-lg font-bold mb-3">1. Pilih Jenis Request</h2>
+    <p class="text-xs text-slate-500 mb-4">Pilih apakah ini Create BP baru atau Extend data BP yang sudah ada.</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <button data-mode="create" class="mode-card text-left p-4 border-2 border-slate-200 hover:border-blue-600 rounded-lg transition">
+        <div class="text-2xl mb-1">🆕</div>
+        <div class="font-bold text-sm text-slate-800">Create BP</div>
+        <div class="text-xs text-slate-500 mt-1">Buat Business Partner baru (semua BP Type ZA01–ZJ01)</div>
+      </button>
+      <button data-mode="extend_bank" class="mode-card text-left p-4 border-2 border-slate-200 hover:border-blue-600 rounded-lg transition">
+        <div class="text-2xl mb-1">🏦</div>
+        <div class="font-bold text-sm text-slate-800">Extend Bank Data</div>
+        <div class="text-xs text-slate-500 mt-1">Tambah / ubah data bank ke BP existing (CR16 / ZB03)</div>
+      </button>
+      <button data-mode="extend_rolling_3rd" class="mode-card text-left p-4 border-2 border-slate-200 hover:border-blue-600 rounded-lg transition">
+        <div class="text-2xl mb-1">🛒</div>
+        <div class="font-bold text-sm text-slate-800">Extend Rolling &amp; Schedule Kunjungan — 3rd Party Customer</div>
+        <div class="text-xs text-slate-500 mt-1">Mapping salesman 3rd party ke customer + jadwal kunjungan</div>
+      </button>
+      <button data-mode="extend_rolling_emp" class="mode-card text-left p-4 border-2 border-slate-200 hover:border-blue-600 rounded-lg transition">
+        <div class="text-2xl mb-1">👤</div>
+        <div class="font-bold text-sm text-slate-800">Extend Rolling &amp; Schedule Kunjungan — Sales Employee</div>
+        <div class="text-xs text-slate-500 mt-1">Mapping salesman employee ke customer + jadwal kunjungan</div>
+      </button>
+    </div>
+  </section>
+
+  <!-- Step 1: BP Type picker -->
+  <section id="step-picker" class="hidden bg-white rounded-xl shadow-sm p-6 mb-6">
+    <h2 class="text-lg font-bold mb-3">1. Pilih Business Partner Type</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">BP Type</label>
+        <select id="pickBpType" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm bg-white">
+          <option value="">— pilih BP Type —</option>
+        </select>
+      </div>
+      <button id="btnContinue" class="bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50" disabled>
+        Lanjut ke Form →
+      </button>
+    </div>
+    <p id="pickerInfo" class="text-xs text-slate-500 mt-2"></p>
+  </section>
+
+  <!-- Step 2: Form -->
+  <section id="step-form" class="hidden">
+
+    <!-- Draft selector -->
+    <div class="bg-white rounded-xl shadow-sm p-4 mb-4">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex items-center gap-3">
+          <span class="text-sm font-medium">Drafts:</span>
+          <select id="draftSelector" class="border border-slate-300 rounded-md px-3 py-1.5 text-sm bg-white"></select>
+          <button id="btnNewDraft" class="text-xs px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md">+ New Vendor</button>
+          <button id="btnDupDraft" class="text-xs px-3 py-1.5 bg-slate-600 hover:bg-slate-700 text-white rounded-md">Duplicate</button>
+          <button id="btnDelDraft" class="text-xs px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md">Delete</button>
+        </div>
+        <div class="text-xs text-slate-500" id="bpTypeInfo"></div>
+      </div>
+    </div>
+
+    <!-- Section tabs -->
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+      <div id="sectionTabs" class="flex flex-wrap border-b border-slate-200"></div>
+      <div id="formArea" class="p-6"></div>
+    </div>
+
+    <!-- Action bar -->
+    <div class="bg-white rounded-xl shadow-sm p-4 mt-4 flex flex-wrap gap-3 items-center justify-between">
+      <div class="text-xs text-slate-500" id="validationSummary">Belum ada validasi.</div>
+      <div class="flex gap-2 flex-wrap">
+        <button id="btnValidateAi" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-sm font-medium">🤖 Validate dengan Yeni</button>
+        <button id="btnDownloadXlsx" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-sm font-medium">⬇ Download Excel Template Ready</button>
+        <button id="btnSubmitEmail" class="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-sm font-medium">✉ Submit via Email</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Step 2-EXT: Extend form (Bank / Rolling) -->
+  <section id="step-extend" class="hidden">
+    <div class="bg-white rounded-xl shadow-sm p-4 mb-4 flex items-center justify-between gap-3 flex-wrap">
+      <div>
+        <div id="extendTitle" class="font-bold text-base text-slate-800"></div>
+        <div id="extendSubtitle" class="text-xs text-slate-500"></div>
+      </div>
+      <button id="btnExtBack" class="text-xs px-3 py-1.5 bg-slate-200 hover:bg-slate-300 rounded-md">← Ganti Mode</button>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden p-4">
+      <div class="flex items-center justify-between mb-3">
+        <div class="text-sm font-semibold">Rows</div>
+        <button id="btnExtAddRow" class="text-xs px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md">+ Tambah Row</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-xs border border-slate-200" id="extTable">
+          <thead class="bg-slate-100"></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-4 mt-4 flex flex-wrap gap-3 items-center justify-between">
+      <div class="text-xs text-slate-500" id="extValidationSummary">Belum ada validasi.</div>
+      <div class="flex gap-2 flex-wrap">
+        <button id="btnExtValidate" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-sm font-medium">🤖 Validate dengan Yeni</button>
+        <button id="btnExtDownload" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-sm font-medium">⬇ Download Template Excel</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ============ SETTINGS MODAL ============ -->
+<div id="modalSettings" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6">
+    <h3 class="text-lg font-bold mb-4">Settings</h3>
+    <div class="space-y-3">
+      <div class="hidden">
+        <label class="block text-xs font-medium text-slate-600 mb-1">Cloudflare Worker URL (Yeni Bot)</label>
+        <input id="setWorkerUrl" type="text" placeholder="https://bp-form-qwen.xxx.workers.dev" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Email Tujuan Submit</label>
+        <input id="setSubmitEmail" type="email" placeholder="bp-creation@wings.co.id" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">CC Email (opsional)</label>
+        <input id="setCcEmail" type="email" placeholder="admin@wings.co.id" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Email API URL (opsional, kosongkan untuk mailto)</label>
+        <input id="setEmailApiUrl" type="text" placeholder="https://your-email-api.com/send" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Nama Requestor</label>
+        <input id="setRequestor" type="text" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+      </div>
+    </div>
+    <div class="flex justify-end gap-2 mt-5">
+      <button id="btnCancelSettings" class="px-4 py-2 text-sm rounded-md hover:bg-slate-100">Batal</button>
+      <button id="btnSaveSettings" class="px-4 py-2 text-sm bg-blue-700 text-white rounded-md hover:bg-blue-800">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ YENI BOT (floating) ============ -->
+<div id="yeniLauncher" class="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-2">
+  <div id="yeniBubble" class="yeni-bubble bg-white rounded-2xl rounded-br-none shadow-xl px-4 py-2.5 max-w-xs border border-slate-200">
+    <div class="text-xs font-bold text-pink-600">Yeni</div>
+    <div class="text-sm text-slate-700">Hi! Ada yang bisa saya bantu? 👋</div>
+  </div>
+  <button id="btnYeniOpen" class="w-16 h-16 rounded-full shadow-2xl ring-4 ring-white overflow-hidden hover:scale-105 transition bg-gradient-to-br from-pink-300 to-pink-500">
+    <!-- SVG avatar of friendly young woman -->
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+      <defs>
+        <linearGradient id="bgY" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#fce7f3"/>
+          <stop offset="100%" stop-color="#f9a8d4"/>
+        </linearGradient>
+      </defs>
+      <circle cx="50" cy="50" r="50" fill="url(#bgY)"/>
+      <!-- hair back -->
+      <path d="M20 55 Q20 20 50 18 Q80 20 80 55 L80 80 L20 80 Z" fill="#3f2417"/>
+      <!-- face -->
+      <ellipse cx="50" cy="52" rx="22" ry="26" fill="#fde0c8"/>
+      <!-- hair bangs -->
+      <path d="M28 38 Q40 25 50 28 Q60 25 72 38 Q66 32 50 33 Q34 32 28 38 Z" fill="#3f2417"/>
+      <!-- eyes -->
+      <ellipse cx="42" cy="52" rx="2.2" ry="3" fill="#1f1408"/>
+      <ellipse cx="58" cy="52" rx="2.2" ry="3" fill="#1f1408"/>
+      <circle cx="42.6" cy="51" r="0.7" fill="white"/>
+      <circle cx="58.6" cy="51" r="0.7" fill="white"/>
+      <!-- blush -->
+      <ellipse cx="38" cy="60" rx="3" ry="1.6" fill="#f9a8d4" opacity="0.7"/>
+      <ellipse cx="62" cy="60" rx="3" ry="1.6" fill="#f9a8d4" opacity="0.7"/>
+      <!-- smile -->
+      <path d="M44 64 Q50 69 56 64" stroke="#c2410c" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+      <!-- waving hand -->
+      <circle cx="82" cy="40" r="5" fill="#fde0c8"/>
+    </svg>
+  </button>
+</div>
+
+<!-- Yeni chat panel -->
+<div id="yeniPanel" class="hidden fixed bottom-6 right-6 z-50 w-96 max-w-[95vw] h-[560px] max-h-[80vh] bg-white rounded-2xl shadow-2xl flex flex-col border border-slate-200">
+  <div class="bg-gradient-to-r from-pink-500 to-pink-600 text-white p-3 rounded-t-2xl flex items-center gap-3">
+    <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-xl">👩</div>
+    <div class="flex-1">
+      <div class="font-bold text-sm">Yeni Bot</div>
+      <div class="text-xs opacity-90">Asisten BP Creation Form</div>
+    </div>
+    <button id="btnYeniClose" class="text-white/80 hover:text-white text-xl px-2">✕</button>
+  </div>
+  <div id="yeniMessages" class="flex-1 overflow-y-auto p-3 space-y-3 text-sm bg-slate-50"></div>
+  <!-- Prompt suggestions -->
+  <div id="yeniSuggestions" class="px-3 py-2 border-t border-slate-100 bg-slate-50/80 flex flex-wrap gap-1.5">
+    <button class="yeni-suggest text-[11px] bg-white border border-pink-200 text-pink-700 rounded-full px-2.5 py-1 hover:bg-pink-50 transition">Tax Classification diisi apa?</button>
+    <button class="yeni-suggest text-[11px] bg-white border border-pink-200 text-pink-700 rounded-full px-2.5 py-1 hover:bg-pink-50 transition">Field ini mandatory atau tidak?</button>
+    <button class="yeni-suggest text-[11px] bg-white border border-pink-200 text-pink-700 rounded-full px-2.5 py-1 hover:bg-pink-50 transition">Dokumen apa yang wajib?</button>
+    <button class="yeni-suggest text-[11px] bg-white border border-pink-200 text-pink-700 rounded-full px-2.5 py-1 hover:bg-pink-50 transition">Kenapa Kecamatan terkunci?</button>
+    <button class="yeni-suggest text-[11px] bg-white border border-pink-200 text-pink-700 rounded-full px-2.5 py-1 hover:bg-pink-50 transition">Format NPWP yang benar?</button>
+    <button class="yeni-suggest text-[11px] bg-white border border-pink-200 text-pink-700 rounded-full px-2.5 py-1 hover:bg-pink-50 transition">Tolong validasi draft saya</button>
+  </div>
+  <div class="p-3 border-t border-slate-200 bg-white rounded-b-2xl">
+    <form id="yeniForm" class="flex gap-2">
+      <input id="yeniInput" type="text" placeholder="Tanya apapun tentang form…" class="flex-1 border border-slate-300 rounded-full px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300" />
+      <button type="submit" class="bg-pink-600 hover:bg-pink-700 text-white rounded-full px-4 text-sm font-medium">→</button>
+    </form>
+  </div>
+</div>
+
+<!-- File input for import -->
+<input id="hiddenImport" type="file" accept=".json" class="hidden" />
+
+<script>
+/* ============================================================
+   BP CREATION FORM — application logic
+   ============================================================ */
+
+const STATE = {
+  formData: null,
+  geoData: null,
+  drafts: [],
+  currentDraftIdx: 0,
+  currentBpType: null,
+  currentSection: null,
+  settings: {
+    workerUrl: '',
+    submitEmail: 'bp-creation@wings.co.id',
+    ccEmail: '',
+    emailApiUrl: '',
+    requestor: ''
+  }
+};
+
+const STORAGE_KEY = 'bp_form_drafts_v2';
+const SETTINGS_KEY = 'bp_form_settings_v2';
+
+/* ============================================================
+   DOCUMENT REQUIREMENTS PER BP TYPE (source of truth)
+   Derived from BP Structure document completion rules.
+   Each entry: { key, label, mandatory, bpTypes[] }
+   bpTypes: ['*'] = all, or array of specific types e.g. ['ZA01','ZB01']
+   ============================================================ */
+const DOCUMENT_REQUIREMENTS = [
+  // === Core legal documents ===
+  { key: 'npwp_attachment',          label: 'NPWP',                               mandatory: true,  bpTypes: ['*'] },
+  { key: 'ktp_attachment',           label: 'KTP Pemilik / PIC',                  mandatory: true,  bpTypes: ['*'] },
+  { key: 'nib_attachment',           label: 'NIB (Nomor Induk Berusaha)',          mandatory: true,  bpTypes: ['ZA01','ZA02','ZA03','ZA04','ZB01','ZB02','ZC01','ZC02','ZC03','ZC04','ZD01','ZD02','ZE01','ZF01'] },
+  { key: 'sppkp_attachment',         label: 'SPPKP',                              mandatory: true,  bpTypes: ['ZA01','ZA02','ZB01','ZB02','ZC01','ZC02','ZD01','ZD02'] },
+  { key: 'akta_attachment',          label: 'Akta Pendirian / Perubahan',          mandatory: true,  bpTypes: ['ZA01','ZA02','ZA03','ZB01','ZB02','ZC01','ZC02','ZC03','ZD01','ZD02'] },
+  { key: 'siup_attachment',          label: 'SIUP / Izin Usaha',                  mandatory: true,  bpTypes: ['ZA01','ZA02','ZA03','ZB01','ZB02','ZC01','ZC02','ZC03'] },
+  { key: 'tdp_attachment',           label: 'TDP / SKT',                          mandatory: false, bpTypes: ['ZA01','ZA02','ZB01','ZB02','ZC01','ZC02'] },
+
+  // === Bank & finance docs ===
+  { key: 'rek_koran_attachment',     label: 'Rekening Koran / Bank Statement',    mandatory: true,  bpTypes: ['ZA01','ZA02','ZA03','ZA04','ZB01','ZB02','ZJ01'] },
+
+  // === Identity docs for non-PT entities ===
+  { key: 'sim_attachment',           label: 'SIM (jika Driver/Korlap)',            mandatory: false, bpTypes: ['ZA04','ZB02','ZJ01'] },
+  { key: 'kk_attachment',            label: 'Kartu Keluarga',                     mandatory: false, bpTypes: ['ZA04','ZB02'] },
+
+  // === Certificates ===
+  { key: 'halal_cert_attachment',    label: 'Sertifikat Halal',                   mandatory: false, bpTypes: ['ZA01','ZA02','ZB01','ZC01','ZC02'] },
+  { key: 'iso_cert_attachment',      label: 'Sertifikat ISO',                     mandatory: false, bpTypes: ['ZA01','ZA02','ZB01','ZC01'] },
+  { key: 'sustain_cert_attachment',  label: 'Sustainability Certificate',         mandatory: false, bpTypes: ['ZA01','ZA02','ZB01'] },
+  { key: 'free_tax_cert_attachment', label: 'SKB (Surat Keterangan Bebas Pajak)', mandatory: false, bpTypes: ['ZA01','ZA02','ZA03','ZB01','ZB02'] },
+
+  // === Other ===
+  { key: 'faktur_competitor',        label: 'Faktur Competitor / Referensi',       mandatory: false, bpTypes: ['ZC01','ZC02','ZC03','ZC04','ZD01','ZD02','ZE01','ZF01'] },
+  { key: 'relation_party_doc_attachment', label: 'Relation Party Document',        mandatory: false, bpTypes: ['ZA01','ZA02','ZB01','ZB02'] },
+  { key: 'other_attachment',         label: 'Dokumen Pendukung Lain',             mandatory: false, bpTypes: ['*'] },
+];
+
+/* Get document requirements applicable to current BP type */
+function getDocRequirements(bpType) {
+  return DOCUMENT_REQUIREMENTS.filter(d =>
+    d.bpTypes.includes('*') || d.bpTypes.includes(bpType)
+  );
+}
+
+/* ============================================================
+   EMAIL SERVICE ABSTRACTION
+   Configurable via environment / settings.
+   Currently uses mailto: protocol (no backend needed).
+   To switch to an API-based email, implement sendEmailViaAPI().
+   ============================================================ */
+const EMAIL_CONFIG = {
+  // Override via STATE.settings
+  get to() { return STATE.settings.submitEmail || 'bp-creation@wings.co.id'; },
+  get cc() { return STATE.settings.ccEmail || ''; },
+  subjectPrefix: 'BP Creation Request',
+  // If a backend email API is available, set this URL
+  get apiUrl() { return STATE.settings.emailApiUrl || ''; },
+};
+
+async function sendEmail(subject, body, attachmentList) {
+  if (EMAIL_CONFIG.apiUrl) {
+    // API-based email (future implementation)
+    return sendEmailViaAPI(subject, body, attachmentList);
+  }
+  // Fallback: mailto + separate file downloads
+  return sendEmailViaMailto(subject, body, attachmentList);
+}
+
+function sendEmailViaMailto(subject, body, attachmentList) {
+  // Download all attachments as separate files for manual attach
+  attachmentList.forEach(a => {
+    const link = document.createElement('a');
+    link.href = `data:${a.mime};base64,${a.base64}`;
+    link.download = a.downloadName;
+    link.click();
+  });
+  const mailto = `mailto:${encodeURIComponent(EMAIL_CONFIG.to)}?` +
+    (EMAIL_CONFIG.cc ? `cc=${encodeURIComponent(EMAIL_CONFIG.cc)}&` : '') +
+    `subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.location.href = mailto;
+}
+
+async function sendEmailViaAPI(subject, body, attachmentList) {
+  // Placeholder for API-based email integration
+  // Expects: POST EMAIL_CONFIG.apiUrl { to, cc, subject, body, attachments: [{filename, mime, base64}] }
+  try {
+    const res = await fetch(EMAIL_CONFIG.apiUrl, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        to: EMAIL_CONFIG.to,
+        cc: EMAIL_CONFIG.cc,
+        subject, body,
+        attachments: attachmentList.map(a => ({
+          filename: a.downloadName, mime: a.mime, base64: a.base64
+        }))
+      })
+    });
+    if (!res.ok) throw new Error(`Email API error: ${res.status}`);
+    alert('Email berhasil dikirim!');
+  } catch (err) {
+    alert('Gagal kirim email via API: ' + err.message + '\nFallback ke mailto...');
+    sendEmailViaMailto(subject, body, attachmentList);
+  }
+}
+
+/* ----------- Helpers ----------- */
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function snakeCase(str) {
+  return String(str || '').toLowerCase()
+    .replace(/[()[\]{}.,;:!?'"\/\\]/g, '')
+    .replace(/&/g, 'and')
+    .replace(/\s+/g, '_')
+    .replace(/-/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+}
+
+/* Map a sections_schema column label to the canonical field_name used by m_map_field.
+   Uses label_to_field map first, falls back to snake_case heuristics. */
+function labelToFieldName(label) {
+  if (!label) return '';
+  const map = STATE.formData?.label_to_field || {};
+  if (map[label]) return map[label];
+  if (map[label.toLowerCase()]) return map[label.toLowerCase()];
+  // overrides
+  const overrides = {
+    'House Number': 'no',
+    'Address (Full)': 'address',
+    'Name 1 (Commercial Name)': 'name_1',
+    'Name 2 (Legal Name)': 'name_2',
+    'Name 3': 'name_3',
+    'Name 4': 'name_4',
+    'Search Term 1': 'search_term_1',
+    'Distr. Channel': 'distribution_channel',
+    'Sales Org.': 'sales_org',
+    'Recon Account': 'recon_account',
+    'Sub District': 'sub_district',
+    'Sub-District': 'sub_district',
+  };
+  if (overrides[label]) return overrides[label];
+  return snakeCase(label);
+}
+
+/* Centralized field metadata accessor — single source of truth.
+   Falls back to a synthesized stub if a field isn't in the metadata table. */
+function getFieldMeta(fname) {
+  return (STATE.formData?.field_metadata?.[fname]) || {
+    widget: 'text', lov: null, lov_filter: null,
+    derive_from: null, derive_via: null, compose_from: null,
+    export_value: 'self', template_col: null, format_hint: null
+  };
+}
+
+/* For a column in sections_schema, find its rule entry in field_map for the current BP type */
+function fieldRuleFor(bpType, sectionKey, label) {
+  const fname = labelToFieldName(label);
+  const fm = STATE.formData?.field_map?.[bpType]?.[sectionKey];
+  if (!fm) return null;
+  return fm[fname] || null;
+}
+
+/* ============================================================
+   GENERIC DERIVATION ENGINE
+   Reads rules from form_data.derivation_engine.rules
+   Each rule:
+     { id, source_sheet, keys: [...], targets: [...], mode, source? }
+   Modes:
+     - autofill_single  : exactly 1 match → fill targets, downstream becomes derived
+     - autofill_first   : N matches → take [0] → fill targets
+     - filter_dropdown  : narrow target dropdown options to match list
+   When source === 'geo_data' the engine routes to STATE.geoData (which is too big to inline).
+   ============================================================ */
+
+/* Pull the bp_type into a virtual "key" so engine rules can use bp_type as a key field */
+function _virtualKeyValue(keyName, sectionData) {
+  if (keyName === 'bp_type') return STATE.currentBpType || '';
+  if (keyName === 'entity') {
+    // BP types ZA*, ZB*, ZJ* → vendor; ZC*, ZD*, ZE*, ZF*, ZG*, ZH*, ZI* → customer
+    const bp = STATE.currentBpType || '';
+    if (bp.startsWith('ZA') || bp.startsWith('ZB') || bp.startsWith('ZJ')) return 'vendor';
+    return 'customer';
+  }
+  return sectionData[keyName];
+}
+
+/* Look up matches for a rule given current section data + general_view fallback */
+function _lookupRule(rule, sectionData) {
+  const gv = STATE.drafts[STATE.currentDraftIdx]?.sections?.general_view || {};
+  const keyVals = rule.keys.map(k => {
+    const v = _virtualKeyValue(k, sectionData);
+    if (v != null && v !== '') return v;
+    // fallback to general_view (e.g. country picked in general_view, used by recon in cust_finance_view)
+    return gv[k] || '';
+  });
+  if (keyVals.some(v => v == null || v === '')) return null; // not enough context
+
+  // Geo cascade rules: route to geo_data instead of engine.lookups
+  if (rule.source === 'geo_data') {
+    const geo = STATE.geoData?.geo || {};
+    const [p, r, d, sd] = keyVals;
+    if (rule.id === 'geo_regency_by_province') {
+      return Object.keys(geo[p] || {}).sort().map(x => ({regency: x, city: x}));
+    }
+    if (rule.id === 'geo_district_by_province_regency') {
+      return Object.keys(geo[p]?.[r] || {}).sort().map(x => ({district: x}));
+    }
+    if (rule.id === 'geo_subdistrict_by_province_regency_district') {
+      return (geo[p]?.[r]?.[d] || []).map(x => ({sub_district: x[0]}));
+    }
+    if (rule.id === 'geo_postal_by_full_address') {
+      const tuple = (geo[p]?.[r]?.[d] || []).find(x => x[0] === sd);
+      if (!tuple) return [];
+      return [{
+        postal_code: tuple[1],
+        region: STATE.geoData?.province_codes?.[p] || ''
+      }];
+    }
+    return [];
+  }
+
+  // Regular rule: read from engine.lookups
+  const lookupKey = keyVals.join('|');
+  let matches = STATE.formData.derivation_engine?.lookups?.[rule.id]?.[lookupKey];
+  // Normalize country keys: some lookups use 'ID'/'Non ID' categories instead of ISO codes.
+  // If no match and rule uses 'country' as a key, retry with normalized value.
+  if (!matches && rule.keys.includes('country')) {
+    const ci = rule.keys.indexOf('country');
+    const normalized = [...keyVals];
+    normalized[ci] = normalized[ci] === 'ID' ? 'ID' : 'Non ID';
+    matches = STATE.formData.derivation_engine?.lookups?.[rule.id]?.[normalized.join('|')];
+  }
+  return matches || [];
+}
+
+/* Apply autofill rules triggered by a change to fieldName.
+   Returns true if any field value was modified (caller should re-render). */
+function applyDerivations(triggerField, sectionData) {
+  const engine = STATE.formData?.derivation_engine;
+  if (!engine?.rules) return false;
+  let mutated = false;
+
+  for (const rule of engine.rules) {
+    // Only run rules whose key set includes the trigger (or downstream cascades)
+    if (!rule.keys.includes(triggerField)) continue;
+    const matches = _lookupRule(rule, sectionData);
+    if (!matches || matches.length === 0) continue;
+
+    if (rule.mode === 'autofill_single' && matches.length === 1) {
+      for (const t of rule.targets) {
+        const v = matches[0][t];
+        if (v != null && v !== '' && sectionData[t] !== v) {
+          sectionData[t] = v;
+          mutated = true;
+        }
+      }
+    } else if (rule.mode === 'autofill_first') {
+      for (const t of rule.targets) {
+        const v = matches[0][t];
+        if (v != null && v !== '' && sectionData[t] !== v) {
+          sectionData[t] = v;
+          mutated = true;
+        }
+      }
+    } else if (rule.mode === 'filter_dropdown') {
+      // Clear stale downstream value if it's not in the new filtered options
+      for (const t of rule.targets) {
+        const valid = matches.map(m => m[t]).filter(Boolean);
+        if (sectionData[t] && !valid.includes(sectionData[t])) {
+          sectionData[t] = '';
+          mutated = true;
+        }
+      }
+    }
+  }
+  return mutated;
+}
+
+/* Find the LOV (filtered or master) for a field given current section data */
+function getLovForField(fname, sectionData) {
+  const fd = STATE.formData;
+  const engine = fd?.derivation_engine;
+
+  // 1) Engine-driven filter: look for any rule that targets this field with mode=filter_dropdown
+  if (engine?.rules) {
+    for (const rule of engine.rules) {
+      if (rule.mode !== 'filter_dropdown') continue;
+      if (!rule.targets.includes(fname)) continue;
+      const matches = _lookupRule(rule, sectionData);
+      if (matches === null) continue; // not enough context yet
+      if (matches.length === 0) return []; // explicit empty (no matches)
+      // Build {id, desc} list. Use first target as id, second as desc if present.
+      const idField = fname;
+      const descField = rule.targets.find(t => t !== fname && t.endsWith('_desc')) || rule.targets[1];
+      const seen = new Set();
+      const out = [];
+      for (const m of matches) {
+        const id = m[idField];
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        out.push({id, desc: descField ? (m[descField] || '') : ''});
+      }
+      if (out.length > 0) return out;
+    }
+  }
+
+  // 2) Static master dropdown via metadata.lov
+  const meta = getFieldMeta(fname);
+  if (meta.lov && fd.dropdown_lov?.[meta.lov]) {
+    return fd.dropdown_lov[meta.lov];
+  }
+  // 3) Fallback via field_options
+  const dropdownKey = fd.field_options?.[fname];
+  return dropdownKey ? (fd.dropdown_lov?.[dropdownKey] || []) : null;
+}
+
+/* ============================================================
+   RUNTIME PATCHES — fixes data-layer gaps without touching form_data.json
+   ============================================================ */
+function patchFormData(fd) {
+  /* PATCH 1: Add missing sections to section_order + section_display.
+     5 sections exist in field_map but were omitted from section_order,
+     so their tabs never render. */
+  const MISSING_SECTIONS = {
+    vendor_procurement_view: 'Vendor Procurement View',
+    vendor_finance_view:     'Vendor Finance View',
+    vendor_withholding_tax:  'Vendor Withholding Tax',
+    cust_withholding_tax:    'Customer Withholding Tax',
+    partner_function_view:   'Partner Function View',
+  };
+  // Insert vendor sections right after general_view, customer WHT after cust_finance_view,
+  // partner_function at the end (before doc_attachment if present).
+  const insertAfter = (arr, anchor, item) => {
+    if (arr.includes(item)) return;
+    const idx = arr.indexOf(anchor);
+    arr.splice(idx >= 0 ? idx + 1 : arr.length, 0, item);
+  };
+  insertAfter(fd.section_order, 'bank_info',           'vendor_procurement_view');
+  insertAfter(fd.section_order, 'vendor_procurement_view', 'vendor_finance_view');
+  insertAfter(fd.section_order, 'vendor_finance_view',     'vendor_withholding_tax');
+  insertAfter(fd.section_order, 'cust_finance_view',       'cust_withholding_tax');
+  insertAfter(fd.section_order, 'salesman_view',           'partner_function_view');
+  Object.entries(MISSING_SECTIONS).forEach(([k, v]) => {
+    if (!fd.section_display[k]) fd.section_display[k] = v;
+  });
+
+  /* PATCH 2: payment_term / payment_terms should be select dropdowns.
+     They map to 'Terms of Payment' LOV (178 entries) but metadata
+     had widget:'text' and no lov pointer. */
+  if (!fd.field_metadata) fd.field_metadata = {};
+  ['payment_term', 'payment_terms'].forEach(fn => {
+    const m = fd.field_metadata[fn] || {};
+    m.widget = 'select';
+    m.lov = 'Terms of Payment';
+    m.derive_from = ['country'];
+    fd.field_metadata[fn] = m;
+  });
+
+  /* PATCH 3: top_by_country_entity derivation targets 'top_id' but
+     the form fields are payment_term / payment_terms. When the engine
+     fills top_id, also copy value to payment_term(s). */
+  const engine = fd.derivation_engine;
+  if (engine?.rules) {
+    const topRule = engine.rules.find(r => r.id === 'top_by_country_entity');
+    if (topRule && !topRule._patched) {
+      topRule._patched = true;
+      // Keep original targets but add payment aliases
+      if (!topRule.targets.includes('payment_term'))  topRule.targets.push('payment_term');
+      if (!topRule.targets.includes('payment_terms')) topRule.targets.push('payment_terms');
+      // Clone lookup entries to also have payment_term/payment_terms keys
+      const lk = engine.lookups?.top_by_country_entity;
+      if (lk) {
+        for (const [key, arr] of Object.entries(lk)) {
+          lk[key] = arr.map(row => ({
+            ...row,
+            payment_term:  row.top_id,
+            payment_terms: row.top_id,
+          }));
+        }
+      }
+    }
+  }
+
+  /* PATCH 4: Generate sections_schema stubs for missing sections
+     so Excel export can include them. Schema is inferred from
+     field_map labels. */
+  if (!fd.sections_schema) fd.sections_schema = {};
+  Object.keys(MISSING_SECTIONS).forEach(secKey => {
+    if (fd.sections_schema[secKey]) return; // already has schema
+    // Collect all unique fields across all BP types for this section
+    const allFields = new Map();
+    for (const bp of Object.keys(fd.field_map || {})) {
+      const secFields = fd.field_map[bp]?.[secKey];
+      if (!secFields) continue;
+      for (const [fn, meta] of Object.entries(secFields)) {
+        if (!allFields.has(fn)) {
+          allFields.set(fn, { header: `${meta.label || fn} [${meta.mandatory ? 'M' : 'O'}]`, label: meta.label || fn });
+        }
+      }
+    }
+    if (allFields.size > 0) {
+      fd.sections_schema[secKey] = Array.from(allFields.entries()).map(([fn, info]) => ({
+        header: info.header,
+        label: info.label,
+        default: null
+      }));
+    }
+  });
+
+  console.log('[patchFormData] Applied 4 runtime patches. section_order:', fd.section_order);
+}
+
+/* ============================================================
+   BOOT
+   ============================================================ */
+async function fetchJsonAsset(filename, {required = true} = {}) {
+  const url = `${filename}?v=20260407-2`;
+  const res = await fetch(url, { cache: 'no-store' });
+
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status} saat load ${filename}`);
+  }
+
+  const text = await res.text();
+
+  if (!text || !text.trim()) {
+    throw new Error(`${filename} kosong`);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    const start = text.slice(0, 120).replace(/\s+/g, ' ');
+    const end = text.slice(-120).replace(/\s+/g, ' ');
+    throw new Error(
+      `${filename} bukan JSON valid / response kepotong. ` +
+      `Panjang=${text.length}. Awal="${start}" Akhir="${end}"`
+    );
+  }
+}
+
+async function boot() {
+  // Load settings
+  try {
+    const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+    Object.assign(STATE.settings, s);
+  } catch {}
+
+  // Load form data
+  try {
+    STATE.formData = await fetchJsonAsset('form_data.json');
+  } catch (e) {
+    alert('Gagal load form_data.json: ' + e.message);
+    return;
+  }
+  patchFormData(STATE.formData);
+
+  // Load geo
+  try {
+    STATE.geoData = await fetchJsonAsset('geo_data.json');
+  } catch (e) {
+    console.warn('geo_data.json tidak ditemukan atau invalid, dropdown wilayah akan terbatas.', e);
+    STATE.geoData = { province_codes: {}, geo: {} };
+  }
+
+  // Populate BP type picker
+  const sel = $('#pickBpType');
+  Object.entries(STATE.formData.bp_types).forEach(([k, v]) => {
+    const o = document.createElement('option');
+    o.value = k;
+    o.textContent = `${k} — ${v.description}`;
+    sel.appendChild(o);
+  });
+
+  // Try to load saved drafts
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+    if (saved && saved.drafts && saved.drafts.length) {
+      STATE.drafts = saved.drafts;
+      STATE.currentBpType = saved.bpType;
+      STATE.currentDraftIdx = saved.idx || 0;
+      sel.value = STATE.currentBpType;
+      enterFormStep();
+    }
+  } catch {}
+
+  bindUi();
+}
+
+function bindUi() {
+  $('#pickBpType').addEventListener('change', (e) => {
+    $('#btnContinue').disabled = !e.target.value;
+    $('#pickerInfo').textContent = e.target.value ? `BP Type ${e.target.value} dipilih.` : '';
+  });
+  $('#btnContinue').addEventListener('click', () => {
+    STATE.currentBpType = $('#pickBpType').value;
+    STATE.drafts = [createEmptyDraft()];
+    STATE.currentDraftIdx = 0;
+    enterFormStep();
+  });
+
+  // settings
+  $('#btnSettings').addEventListener('click', openSettings);
+  $('#btnCancelSettings').addEventListener('click', () => $('#modalSettings').classList.add('hidden'));
+  $('#btnSaveSettings').addEventListener('click', saveSettings);
+
+  // drafts
+  $('#draftSelector').addEventListener('change', e => { STATE.currentDraftIdx = +e.target.value; renderForm(); });
+  $('#btnNewDraft').addEventListener('click', () => { STATE.drafts.push(createEmptyDraft()); STATE.currentDraftIdx = STATE.drafts.length-1; renderDraftSelector(); renderForm(); });
+  $('#btnDupDraft').addEventListener('click', () => { STATE.drafts.push(JSON.parse(JSON.stringify(STATE.drafts[STATE.currentDraftIdx]))); STATE.currentDraftIdx = STATE.drafts.length-1; renderDraftSelector(); renderForm(); });
+  $('#btnDelDraft').addEventListener('click', () => {
+    if (STATE.drafts.length === 1) { alert('Minimal harus ada 1 draft.'); return; }
+    if (!confirm('Hapus draft ini?')) return;
+    STATE.drafts.splice(STATE.currentDraftIdx, 1);
+    STATE.currentDraftIdx = Math.max(0, STATE.currentDraftIdx-1);
+    renderDraftSelector(); renderForm();
+  });
+
+  // export/import
+  $('#btnExportJson').addEventListener('click', exportDraftsJson);
+  $('#btnImport').addEventListener('click', () => $('#hiddenImport').click());
+  $('#hiddenImport').addEventListener('change', importDraftsJson);
+
+  // submit / download / validate
+  $('#btnDownloadXlsx').addEventListener('click', downloadFilledTemplate);
+  $('#btnSubmitEmail').addEventListener('click', submitViaEmail);
+  $('#btnValidateAi').addEventListener('click', validateWithYeni);
+
+  // Yeni bot
+  $('#btnYeniOpen').addEventListener('click', openYeni);
+  $('#btnYeniClose').addEventListener('click', () => { $('#yeniPanel').classList.add('hidden'); $('#yeniLauncher').classList.remove('hidden'); });
+  $('#yeniForm').addEventListener('submit', e => { e.preventDefault(); sendYeniMessage(); });
+
+  // Hide initial Yeni bubble after 8s
+  setTimeout(() => { const b = $('#yeniBubble'); if (b) b.classList.add('opacity-0','transition','duration-500'); }, 8000);
+
+  // Prompt suggestion clicks
+  document.querySelectorAll('.yeni-suggest').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $('#yeniInput').value = btn.textContent;
+      openYeni();
+      sendYeniMessage();
+      // Hide suggestions after first use
+      const sg = $('#yeniSuggestions');
+      if (sg) sg.classList.add('hidden');
+    });
+  });
+}
+
+function openSettings() {
+  $('#setWorkerUrl').value = STATE.settings.workerUrl;
+  $('#setSubmitEmail').value = STATE.settings.submitEmail;
+  $('#setCcEmail').value = STATE.settings.ccEmail || '';
+  $('#setEmailApiUrl').value = STATE.settings.emailApiUrl || '';
+  $('#setRequestor').value = STATE.settings.requestor;
+  $('#modalSettings').classList.remove('hidden');
+}
+function saveSettings() {
+  STATE.settings.workerUrl = $('#setWorkerUrl').value.trim();
+  STATE.settings.submitEmail = $('#setSubmitEmail').value.trim();
+  STATE.settings.ccEmail = $('#setCcEmail').value.trim();
+  STATE.settings.emailApiUrl = $('#setEmailApiUrl').value.trim();
+  STATE.settings.requestor = $('#setRequestor').value.trim();
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(STATE.settings));
+  $('#modalSettings').classList.add('hidden');
+}
+
+/* ============================================================
+   DRAFTS
+   ============================================================ */
+function createEmptyDraft() {
+  const d = { _label: 'Draft baru', sections: {}, attachments: [] };
+  // Pre-fill stepper defaults into general_view
+  const sd = STATE.formData.stepper_defaults || {};
+  d.sections.general_view = {
+    prefix_address: sd.prefixAddress || 'JL',
+    language_key: sd.languageKey || 'EN',
+    prefix_name: '',
+    prefix_rt_rw: 'RT',
+  };
+  return d;
+}
+
+function persistDrafts() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      drafts: STATE.drafts, bpType: STATE.currentBpType, idx: STATE.currentDraftIdx
+    }));
+  } catch {}
+}
+
+function renderDraftSelector() {
+  const sel = $('#draftSelector');
+  sel.innerHTML = '';
+  STATE.drafts.forEach((d, i) => {
+    const o = document.createElement('option');
+    o.value = i;
+    const gv = d.sections.general_view || {};
+    const name = gv.name_1 || d._label || `Draft ${i+1}`;
+    o.textContent = `${i+1}. ${name}`;
+    sel.appendChild(o);
+  });
+  sel.value = STATE.currentDraftIdx;
+}
+
+/* ============================================================
+   FORM RENDERING
+   ============================================================ */
+function enterFormStep() {
+  $('#step-picker').classList.add('hidden');
+  $('#step-form').classList.remove('hidden');
+  $('#bpTypeInfo').textContent = `${STATE.currentBpType} — ${STATE.formData.bp_types[STATE.currentBpType]?.description || ''}`;
+  STATE.currentSection = STATE.formData.section_order[0];
+  renderDraftSelector();
+  renderSectionTabs();
+  renderForm();
+}
+
+function renderSectionTabs() {
+  const wrap = $('#sectionTabs');
+  wrap.innerHTML = '';
+  STATE.formData.section_order.forEach(secKey => {
+    // Only render if BP type has any field in this section
+    const fm = STATE.formData.field_map?.[STATE.currentBpType]?.[secKey];
+    if (!fm || Object.keys(fm).length === 0) return;
+    const btn = document.createElement('button');
+    btn.className = 'px-4 py-2.5 text-xs font-medium border-r border-slate-200 ' + (secKey === STATE.currentSection ? 'tab-active' : 'tab-inactive');
+    btn.textContent = STATE.formData.section_display[secKey] || secKey;
+    btn.addEventListener('click', () => { STATE.currentSection = secKey; renderSectionTabs(); renderForm(); });
+    wrap.appendChild(btn);
+  });
+}
+
+function renderForm() {
+  if (!STATE.currentSection) STATE.currentSection = STATE.formData.section_order[0];
+  renderDraftSelector();
+  const area = $('#formArea');
+  area.innerHTML = '';
+  const draft = STATE.drafts[STATE.currentDraftIdx];
+  if (!draft.sections[STATE.currentSection]) draft.sections[STATE.currentSection] = {};
+  const sectionData = draft.sections[STATE.currentSection];
+  const fieldMap = STATE.formData.field_map?.[STATE.currentBpType]?.[STATE.currentSection] || {};
+
+  // doc_attachment section is empty in field_map per BP type — fall back to standalone uploader
+  // (the real document fields incl. their _attachment quartets live in doc_completion and render
+  // inline as part of the normal field grid below).
+  if (STATE.currentSection === 'doc_attachment' && Object.keys(fieldMap).length === 0) {
+    renderAttachmentSection(area, draft);
+    return;
+  }
+
+  const visibleFields = Object.keys(fieldMap);
+
+  if (visibleFields.length === 0) {
+    area.innerHTML = '<p class="text-sm text-slate-500">Tidak ada field untuk section ini pada BP Type terpilih.</p>';
+    return;
+  }
+
+  // Title
+  const h = document.createElement('h3');
+  h.className = 'text-lg font-bold mb-4';
+  h.textContent = STATE.formData.section_display[STATE.currentSection] || STATE.currentSection;
+  area.appendChild(h);
+
+  // Grid
+  const grid = document.createElement('div');
+  grid.className = 'grid grid-cols-1 md:grid-cols-2 gap-4';
+  area.appendChild(grid);
+
+  // Render each field from field_map (the canonical visibility list)
+  visibleFields.forEach(fname => {
+    const meta = fieldMap[fname];
+    grid.appendChild(renderField(fname, meta, sectionData));
+  });
+  persistDrafts();
+}
+
+/* ----- Field renderer — dispatches purely on field_metadata.widget ----- */
+function renderField(fname, fmEntry, sectionData) {
+  const meta = getFieldMeta(fname);
+  const wrap = document.createElement('div');
+  const label = document.createElement('label');
+  label.className = 'block text-xs font-medium text-slate-700 mb-1';
+
+  const mBadge = fmEntry.mandatory ? '<span class="badge-m">M</span>' : '<span class="badge-o">O</span>';
+  const dBadge = (meta.widget === 'derived' || meta.widget === 'composed') ? '<span class="badge-d ml-1">DERIVED</span>' : '';
+  label.innerHTML = `${esc(fmEntry.label)} ${mBadge}${dBadge}`;
+  wrap.appendChild(label);
+
+  // Resolve LOV with context filter
+  const lov = getLovForField(fname, sectionData);
+
+  let input;
+  switch (meta.widget) {
+    case 'cascade':
+      input = renderGeoCascade(fname, sectionData);
+      break;
+    case 'derived':
+      input = renderDerivedReadOnly(fname, sectionData);
+      break;
+    case 'composed':
+      input = renderDerivedAddress(fname, sectionData);
+      break;
+    case 'select':
+      if (lov && lov.length) {
+        input = renderDropdown(fname, lov, sectionData);
+      } else {
+        // Filtered LOV is empty (e.g. user hasn't picked the upstream filter yet)
+        input = renderInput(fname, sectionData, 'text');
+        input.placeholder = meta.derive_from ? `Pilih ${meta.derive_from.join(' / ')} dulu…` : '';
+        input.disabled = !!meta.derive_from;
+      }
+      break;
+    case 'file':
+      input = renderFileUpload(fname, fmEntry, sectionData);
+      break;
+    case 'date':
+      input = renderInput(fname, sectionData, 'date'); break;
+    case 'email':
+      input = renderInput(fname, sectionData, 'email'); break;
+    case 'tel':
+      input = renderInput(fname, sectionData, 'tel'); break;
+    case 'number':
+      input = renderInput(fname, sectionData, 'number'); break;
+    default:
+      // text fallback — also covers name_1 (composed at export, but free-text in UI)
+      input = renderInput(fname, sectionData, 'text');
+  }
+  wrap.appendChild(input);
+
+  // Help text from metadata (no more hardcoded helpTextFor)
+  if (meta.format_hint) {
+    const p = document.createElement('p');
+    p.className = 'text-[10px] text-slate-400 mt-0.5';
+    p.textContent = meta.format_hint;
+    wrap.appendChild(p);
+  }
+  return wrap;
+}
+
+function renderInput(fname, sectionData, type) {
+  const inp = document.createElement('input');
+  inp.type = type;
+  inp.className = 'w-full border border-slate-300 rounded-md px-3 py-2 text-sm';
+  inp.value = sectionData[fname] ?? '';
+  inp.dataset.field = fname;
+  inp.addEventListener('input', e => {
+    sectionData[fname] = e.target.value;
+    onFieldChange(fname, e.target.value, sectionData);
+  });
+  return inp;
+}
+
+/* File upload widget for *_attachment fields — stores into the current draft.attachments[] */
+function renderFileUpload(fname, meta, sectionData) {
+  const draft = STATE.drafts[STATE.currentDraftIdx];
+  if (!draft.attachments) draft.attachments = [];
+  const existing = draft.attachments.find(a => a.slot === fname);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'border border-slate-200 rounded-md p-2 bg-slate-50';
+
+  const fileInp = document.createElement('input');
+  fileInp.type = 'file';
+  fileInp.accept = 'image/*,.pdf';
+  fileInp.className = 'block w-full text-xs';
+  fileInp.dataset.field = fname;
+  fileInp.addEventListener('change', async e => {
+    const f = e.target.files[0]; if (!f) return;
+    if (f.size > 5 * 1024 * 1024) { alert('Maks 5 MB per file.'); fileInp.value=''; return; }
+    const b64 = await fileToB64(f);
+    draft.attachments = draft.attachments.filter(a => a.slot !== fname);
+    draft.attachments.push({
+      slot: fname, label: meta.label, filename: f.name, mime: f.type, size: f.size, base64: b64,
+      owner: '', note: ''
+    });
+    sectionData[fname] = f.name; // store filename in section data so it appears in template
+    persistDrafts();
+    renderForm();
+  });
+  wrap.appendChild(fileInp);
+
+  if (existing) {
+    const status = document.createElement('div');
+    status.className = 'mt-2 space-y-1';
+    status.innerHTML = `
+      <div class="flex items-center justify-between text-[11px]">
+        <span class="text-emerald-700 font-medium">✓ ${esc(existing.filename)} (${(existing.size/1024).toFixed(0)} KB)</span>
+        <button type="button" data-rm="${fname}" class="text-red-600 underline">remove</button>
+      </div>
+      <input type="text" placeholder="Pemilik dokumen (nama / posisi)" value="${esc(existing.owner||'')}" class="w-full border border-slate-300 rounded px-2 py-1 text-[11px]" data-owner="${fname}" />
+      <input type="text" placeholder="Keterangan (opsional)" value="${esc(existing.note||'')}" class="w-full border border-slate-300 rounded px-2 py-1 text-[11px]" data-note="${fname}" />
+    `;
+    wrap.appendChild(status);
+    status.querySelector('[data-rm]').addEventListener('click', () => {
+      draft.attachments = draft.attachments.filter(a => a.slot !== fname);
+      sectionData[fname] = '';
+      persistDrafts(); renderForm();
+    });
+    status.querySelector('[data-owner]').addEventListener('input', e => {
+      const a = draft.attachments.find(x => x.slot === fname); if (a) { a.owner = e.target.value; persistDrafts(); }
+    });
+    status.querySelector('[data-note]').addEventListener('input', e => {
+      const a = draft.attachments.find(x => x.slot === fname); if (a) { a.note = e.target.value; persistDrafts(); }
+    });
+  }
+  return wrap;
+}
+
+function renderDropdown(fname, lov, sectionData) {
+  const sel = document.createElement('select');
+  sel.className = 'w-full border border-slate-300 rounded-md px-3 py-2 text-sm bg-white';
+  sel.dataset.field = fname;
+  const empty = document.createElement('option');
+  empty.value = ''; empty.textContent = '— pilih —';
+  sel.appendChild(empty);
+  lov.forEach(it => {
+    const id = it.id ?? it;
+    const desc = it.desc ?? '';
+    const o = document.createElement('option');
+    o.value = id;
+    o.textContent = desc ? `${id} — ${desc}` : id;
+    sel.appendChild(o);
+  });
+  if (sectionData[fname] != null) sel.value = sectionData[fname];
+  sel.addEventListener('change', e => {
+    sectionData[fname] = e.target.value;
+    onFieldChange(fname, e.target.value, sectionData);
+  });
+  return sel;
+}
+
+function renderDerivedReadOnly(fname, sectionData) {
+  const inp = document.createElement('input');
+  inp.type = 'text';
+  inp.readOnly = true;
+  inp.className = 'w-full border border-slate-300 rounded-md px-3 py-2 text-sm field-derived';
+  inp.value = sectionData[fname] ?? '';
+  inp.dataset.field = fname;
+  inp.placeholder = 'Auto-derived';
+  return inp;
+}
+
+function renderDerivedAddress(fname, sectionData) {
+  const inp = document.createElement('input');
+  inp.type = 'text';
+  inp.readOnly = true;
+  inp.className = 'w-full border border-slate-300 rounded-md px-3 py-2 text-sm field-derived';
+  inp.value = composeAddress(sectionData);
+  inp.dataset.field = 'address';
+  inp.placeholder = 'Otomatis dari prefix + street + blok + no + rt/rw';
+  return inp;
+}
+
+function composeAddress(sec) {
+  const parts = [
+    sec.prefix_address || 'JL',
+    sec.street,
+    sec.blok ? `Blok ${sec.blok}` : '',
+    sec.no ? `No. ${sec.no}` : '',
+    (sec.rt || sec.rw) ? `RT ${sec.rt || '00'}/RW ${sec.rw || '00'}` : ''
+  ].filter(Boolean);
+  return parts.join(' ');
+}
+
+function composeName(sec) {
+  return [sec.prefix_name, sec.name_1].filter(Boolean).join(' ');
+}
+
+/* Cascading geo dropdown ----------------- */
+function renderGeoCascade(fname, sectionData) {
+  const sel = document.createElement('select');
+  sel.className = 'w-full border border-slate-300 rounded-md px-3 py-2 text-sm bg-white';
+  sel.dataset.field = fname;
+  const empty = document.createElement('option');
+  empty.value = ''; empty.textContent = '— pilih —';
+  sel.appendChild(empty);
+
+  // Use the engine's filtered LOV resolver for downstream levels.
+  // For 'province' there's no upstream so we pull keys directly from geo_data.
+  let options = [];
+  if (fname === 'province') {
+    options = Object.keys(STATE.geoData?.geo || {}).sort().map(p => ({id: p, desc: ''}));
+  } else {
+    options = getLovForField(fname, sectionData) || [];
+  }
+
+  options.forEach(opt => {
+    const v = typeof opt === 'string' ? opt : opt.id;
+    const o = document.createElement('option');
+    o.value = v; o.textContent = v;
+    sel.appendChild(o);
+  });
+  if (sectionData[fname]) sel.value = sectionData[fname];
+
+  sel.addEventListener('change', e => {
+    sectionData[fname] = e.target.value;
+    // Cascade clear lower levels (the engine's filter_dropdown also clears stale values,
+    // but we want immediate clearing on parent change so the user sees blank dropdowns)
+    if (fname === 'province')                          { sectionData.regency = ''; sectionData.city = ''; sectionData.district = ''; sectionData.sub_district = ''; sectionData.postal_code = ''; sectionData.region = ''; }
+    if (fname === 'regency' || fname === 'city')      { sectionData.district = ''; sectionData.sub_district = ''; sectionData.postal_code = ''; }
+    if (fname === 'district')                          { sectionData.sub_district = ''; sectionData.postal_code = ''; }
+
+    // Run engine — applies geo_postal_by_full_address (autofill_single) when sub_district picked
+    applyDerivations(fname, sectionData);
+    renderForm();
+  });
+  return sel;
+}
+
+function onFieldChange(fname, value, sectionData) {
+  let needRerender = false;
+
+  // ----- Address auto-join -----
+  if (['prefix_address','street','blok','no','rt','rw'].includes(fname)) {
+    sectionData.address = composeAddress(sectionData);
+    const addrInput = $('input[data-field="address"]');
+    if (addrInput) addrInput.value = sectionData.address;
+  }
+
+  // ----- Generic derivation engine -----
+  // Single call replaces ~80 lines of hardcoded if/else risk_class/sales_org/bank_country/etc.
+  if (applyDerivations(fname, sectionData)) {
+    needRerender = true;
+  }
+
+  // ----- Cascading clears for filter_dropdown chains (handled by generic engine when matches change,
+  // but some downstream fields share keys we explicitly want to clear on parent change) -----
+  if (fname === 'company_code')      { sectionData.sales_org = ''; needRerender = true; }
+  if (fname === 'customer_group')    { sectionData.customer_group1 = ''; sectionData.customer_group2 = ''; needRerender = true; }
+  if (fname === 'customer_group1')   { sectionData.customer_group2 = ''; needRerender = true; }
+  if (fname === 'bank_country')      { sectionData.bank_key = ''; needRerender = true; }
+  if (fname === 'country')           { sectionData.terms_of_payment = ''; sectionData.payment_term = ''; sectionData.payment_terms = ''; needRerender = true; }
+  if (fname === 'risk_class' || fname === 'rules') {
+    // mirror between rules ↔ risk_class fields
+    if (fname === 'risk_class') sectionData.rules = value;
+    if (fname === 'rules') sectionData.risk_class = value;
+  }
+
+  // Refresh draft selector label whenever name/prefix changes
+  if (fname === 'name_1' || fname === 'prefix_name') {
+    renderDraftSelector();
+  }
+
+  liveValidate(sectionData);
+  persistDrafts();
+  if (needRerender) renderForm();
+}
+
+function liveValidate(sectionData) {
+  // basic — count mandatory fields filled
+  let total = 0, filled = 0;
+  const fm = STATE.formData?.field_map?.[STATE.currentBpType] || {};
+  for (const sec of Object.keys(fm)) {
+    const sd = STATE.drafts[STATE.currentDraftIdx].sections[sec] || {};
+    for (const [fn, meta] of Object.entries(fm[sec])) {
+      if (meta.mandatory) {
+        total++;
+        if (sd[fn]) filled++;
+      }
+    }
+  }
+  $('#validationSummary').textContent = `Mandatory terisi: ${filled}/${total}`;
+}
+
+/* ============================================================
+   DOCUMENT ATTACHMENTS — driven by DOCUMENT_REQUIREMENTS per BP Type
+   ============================================================ */
+function renderAttachmentSection(area, draft) {
+  if (!draft.attachments) draft.attachments = [];
+
+  const bpType = STATE.currentBpType;
+  const docs = getDocRequirements(bpType);
+
+  // Also pull any attachment fields from field_map.doc_completion that we haven't covered
+  const fieldMap = STATE.formData.field_map?.[bpType]?.['doc_completion'] || {};
+  const extraAttachments = Object.entries(fieldMap)
+    .filter(([fn]) => fn.includes('attachment') || fn === 'faktur_competitor')
+    .filter(([fn]) => !docs.some(d => d.key === fn))
+    .map(([fn, m]) => ({key: fn, label: m.label || fn, mandatory: m.mandatory, bpTypes: ['*']}));
+
+  const allDocs = [...docs, ...extraAttachments];
+  const mandatoryDocs = allDocs.filter(d => d.mandatory);
+  const optionalDocs = allDocs.filter(d => !d.mandatory);
+
+  const h = document.createElement('h3');
+  h.className = 'text-lg font-bold mb-2';
+  h.textContent = `Document Attachments — ${bpType}`;
+  area.appendChild(h);
+
+  const desc = document.createElement('div');
+  desc.className = 'text-xs text-slate-500 mb-4 space-y-1';
+  desc.innerHTML = `
+    <p>Upload dokumen pendukung (JPG/PNG/PDF, maks 5 MB). Dokumen <strong>TIDAK disimpan di server</strong> — akan dikirim sebagai lampiran email.</p>
+    <p class="text-slate-400">BP Type: <strong>${esc(bpType)}</strong> — ${esc(STATE.formData.bp_types[bpType]?.description || '')} | Wajib: ${mandatoryDocs.length} dokumen | Opsional: ${optionalDocs.length} dokumen</p>
+  `;
+  area.appendChild(desc);
+
+  // Mandatory documents section
+  if (mandatoryDocs.length > 0) {
+    const mHead = document.createElement('h4');
+    mHead.className = 'text-sm font-bold text-red-700 mb-2 mt-4 flex items-center gap-2';
+    mHead.innerHTML = '<span class="badge-m">M</span> Dokumen Wajib';
+    area.appendChild(mHead);
+    const mGrid = document.createElement('div');
+    mGrid.className = 'grid grid-cols-1 md:grid-cols-2 gap-3 mb-4';
+    mandatoryDocs.forEach(doc => mGrid.appendChild(renderDocCard(doc, draft)));
+    area.appendChild(mGrid);
+  }
+
+  // Optional documents section
+  if (optionalDocs.length > 0) {
+    const oHead = document.createElement('h4');
+    oHead.className = 'text-sm font-bold text-slate-500 mb-2 mt-4 flex items-center gap-2';
+    oHead.innerHTML = '<span class="badge-o">O</span> Dokumen Opsional';
+    area.appendChild(oHead);
+    const oGrid = document.createElement('div');
+    oGrid.className = 'grid grid-cols-1 md:grid-cols-2 gap-3';
+    optionalDocs.forEach(doc => oGrid.appendChild(renderDocCard(doc, draft)));
+    area.appendChild(oGrid);
+  }
+
+  // Completeness indicator
+  const uploaded = draft.attachments.length;
+  const mandUploaded = mandatoryDocs.filter(d => draft.attachments.some(a => a.slot === d.key)).length;
+  const indicator = document.createElement('div');
+  indicator.className = `mt-4 p-3 rounded-lg text-sm font-medium ${mandUploaded >= mandatoryDocs.length ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`;
+  indicator.textContent = `Dokumen wajib terisi: ${mandUploaded}/${mandatoryDocs.length} | Total upload: ${uploaded}/${allDocs.length}`;
+  area.appendChild(indicator);
+}
+
+function renderDocCard(doc, draft) {
+  const existing = draft.attachments.find(a => a.slot === doc.key);
+  const card = document.createElement('div');
+  card.className = `border rounded-lg p-3 ${existing ? 'bg-emerald-50 border-emerald-200' : doc.mandatory ? 'bg-red-50/30 border-red-200' : 'bg-slate-50 border-slate-200'}`;
+
+  card.innerHTML = `
+    <div class="flex items-center justify-between mb-2">
+      <div class="flex items-center gap-2">
+        <span class="text-sm font-medium">${esc(doc.label)}</span>
+        ${doc.mandatory ? '<span class="badge-m">M</span>' : '<span class="badge-o">O</span>'}
+      </div>
+      ${existing ? '<span class="text-xs text-emerald-600 font-bold">✓ UPLOADED</span>' : ''}
+    </div>
+    <div class="text-[10px] text-slate-400 mb-2">BP Type: ${esc(doc.bpTypes.includes('*') ? 'Semua' : doc.bpTypes.join(', '))}</div>
+    <div class="space-y-2">
+      <input type="file" accept="image/*,.pdf" data-slot="${doc.key}" class="text-xs block w-full" />
+      <input type="text" placeholder="Pemilik dokumen (nama / posisi)" data-owner="${doc.key}" value="${esc(existing?.owner || '')}" class="w-full border border-slate-300 rounded-md px-2 py-1 text-xs" />
+      <input type="text" placeholder="Keterangan (opsional)" data-note="${doc.key}" value="${esc(existing?.note || '')}" class="w-full border border-slate-300 rounded-md px-2 py-1 text-xs" />
+      ${existing ? `
+        <div class="flex items-center justify-between text-xs bg-white rounded px-2 py-1">
+          <span class="text-slate-600">📎 ${esc(existing.filename)} (${(existing.size/1024).toFixed(0)} KB)</span>
+          <button data-remove="${doc.key}" class="text-red-600 hover:text-red-800 font-medium">✕ remove</button>
+        </div>
+      ` : ''}
+    </div>
+  `;
+
+  // Bind events
+  const fileInp = card.querySelector('input[type="file"]');
+  fileInp.addEventListener('change', async e => {
+    const f = e.target.files[0]; if (!f) return;
+    if (f.size > 5 * 1024 * 1024) { alert('Maks 5 MB per file.'); return; }
+    const b64 = await fileToB64(f);
+    draft.attachments = draft.attachments.filter(a => a.slot !== doc.key);
+    draft.attachments.push({
+      slot: doc.key, label: doc.label, filename: f.name, mime: f.type, size: f.size, base64: b64,
+      owner: card.querySelector(`input[data-owner="${doc.key}"]`)?.value || '',
+      note:  card.querySelector(`input[data-note="${doc.key}"]`)?.value || '',
+      mandatory: doc.mandatory
+    });
+    persistDrafts(); renderForm();
+  });
+
+  card.querySelectorAll('input[data-owner],input[data-note]').forEach(inp => {
+    inp.addEventListener('input', e => {
+      const slot = e.target.dataset.owner || e.target.dataset.note;
+      const att = draft.attachments.find(a => a.slot === slot);
+      if (att) {
+        if (e.target.dataset.owner) att.owner = e.target.value;
+        if (e.target.dataset.note) att.note = e.target.value;
+        persistDrafts();
+      }
+    });
+  });
+
+  const rmBtn = card.querySelector('button[data-remove]');
+  if (rmBtn) {
+    rmBtn.addEventListener('click', () => {
+      draft.attachments = draft.attachments.filter(a => a.slot !== doc.key);
+      persistDrafts(); renderForm();
+    });
+  }
+
+  return card;
+}
+
+function fileToB64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+/* ============================================================
+   ZB02 MASTER TEMPLATE COLUMN MAP
+   Each section lists columns in the EXACT order they appear
+   in the upload-change-data-template-for-CR-CR01-BPTypeId-ZB02.xlsx
+   h = exact header name from template
+   f = field_name used in form draft data
+   ============================================================ */
+const TEMPLATE_SECTION_COLUMNS = {
+  general_view: [
+    {h:'BP Number Source', f:'bp_id'},
+    {h:'Prefix Name', f:'prefix_name'},
+    {h:'Prefix Address', f:'prefix_address'},
+    {h:'Street', f:'street'},
+    {h:'Blok', f:'blok'},
+    {h:'House Number', f:'no'},
+    {h:'RT', f:'rt'},
+    {h:'RW', f:'rw'},
+    {h:'Name 2 (Legal Name)', f:'name_2'},
+    {h:'Name 3', f:'name_3'},
+    {h:'Name 4', f:'name_4'},
+    {h:'Address', f:'address'},
+    {h:'Country', f:'country'},
+    {h:'Regency', f:'regency'},
+    {h:'Province', f:'province'},
+    {h:'City', f:'city'},
+    {h:'District', f:'district'},
+    {h:'Sub District', f:'sub_district'},
+    {h:'Postal Code', f:'postal_code'},
+    {h:'Search Term 1', f:'search_term_1'},
+    {h:'Language Key', f:'language_key'},
+    {h:'Phone', f:'phone'},
+    {h:'Phone Comment', f:'phone_comment'},
+    {h:'Phone 2', f:'phone_2'},
+    {h:'Fax Number', f:'fax_number'},
+    {h:'Email', f:'email'},
+    {h:'Authorization Group', f:'authorization_group'},
+    {h:'KTP Address', f:'ktp_address'},
+    {h:'NPWP Address', f:'npwp_address'},
+    {h:'Shipping Type', f:'ship_type'},
+    {h:'Risk Class', f:'risk_class'},
+    {h:'Rules', f:'rules'},
+    {h:'Check Rule', f:'check_rule'},
+    {h:'Role Carrier CRM010', f:'role_crm010'},
+    {h:'Area Store', f:'area_store'},
+    {h:'Shopper Toko', f:'shopper_toko'},
+    {h:'Status Badan Usaha Customer', f:'business_entity_status_cust'},
+    {h:'PKP Customer', f:'pkp'},
+    {h:'Customer Number', f:'customer_no'},
+    {h:'Name 1 (Commercial Name)', f:'name_1'},
+    {h:'Supplier Number', f:'supplier_no'},
+    {h:'Condition Group 1', f:'condition_group'},
+    {h:'Condition Group 2', f:'condition_group2'},
+    {h:'Condition Group 3', f:'condition_group3'},
+    {h:'Longitude', f:'longitude'},
+    {h:'Latitude', f:'latitude'},
+  ],
+  relation_view: [
+    {h:'Has Sales Representative Food', f:'ZWS003;bp_id_rlt1'},
+    {h:'Has Sales Representative Non-Food', f:'ZWS004;bp_id_rlt1'},
+    {h:'Has Sales Representative Frozen', f:'ZWS005;bp_id_rlt1'},
+    {h:'Has Collector Reguler', f:'ZWS016;bp_id_rlt1'},
+    {h:'Has Sales Representative Cosmetic', f:'ZWS006;bp_id_rlt1'},
+    {h:'Has Sales Representative Reguler', f:'ZWS007;bp_id_rlt1'},
+    {h:'Has Sales Representative Gypsum', f:'ZWS008;bp_id_rlt1'},
+    {h:'Has Sales Representative Fibercement', f:'ZWS009;bp_id_rlt1'},
+    {h:'Has Sales Representative Ceramic Roof', f:'ZWS010;bp_id_rlt1'},
+    {h:'Has Collector Food', f:'ZWS012;bp_id_rlt1'},
+    {h:'Has Collector Non-Food', f:'ZWS013;bp_id_rlt1'},
+    {h:'Has Collector Frozen', f:'ZWS014;bp_id_rlt1'},
+    {h:'Has Collector Cosmetic', f:'ZWS015;bp_id_rlt1'},
+    {h:'Has Collector Gypsum', f:'ZWS017;bp_id_rlt1'},
+    {h:'Has Collector Fibercement', f:'ZWS018;bp_id_rlt1'},
+    {h:'Has Collector Ceramic Roof', f:'ZWS019;bp_id_rlt1'},
+    {h:'Has Retail Operation', f:'ZWS020;bp_id_rlt1'},
+    {h:'Superordinate Credit Account from', f:'ZWS021;bp_id_rlt1'},
+    {h:'Has Collector Industrial Relation', f:'ZWS022;bp_id_rlt1'},
+    {h:'Has Contact Person (CP)', f:'BUR001;bp_id_rlt1'},
+    {h:'Subordinate Credit Account for', f:'ZWS021;bp_id_rlt2'},
+    // ZA02-specific relation fields (not in ZB02 flat template but needed for ZA02 etc)
+    {h:'Is Parent Company of', f:'ZWS001;bp_id_rlt1'},
+    {h:'Is the Replacement for', f:'ZWS002;bp_id_rlt1'},
+    {h:'Is Subsidiary for', f:'ZWS001;bp_id_rlt2'},
+    {h:'Replaced for', f:'ZWS002;bp_id_rlt2'},
+    {h:'Is Superior for', f:'ZWS011;bp_id_rlt2'},
+    {h:'Has Superior', f:'ZWS011;bp_id_rlt1'},
+    {h:'Is Collector Industrial Relation for', f:'ZWS022;bp_id_rlt2'},
+    {h:'Is Contact Person for', f:'BUR001;bp_id_rlt2'},
+  ],
+  doc_completion: [
+    {h:'KTP Name', f:'ktp_name'},
+    {h:'KTP Attachment', f:'ktp_attachment'},
+    {h:'KTP Valid From', f:'ktp_valid_from'},
+    {h:'KTP Number', f:'ktp_number'},
+    {h:'KK Number', f:'kk_number'},
+    {h:'KK Attachment', f:'kk_attachment'},
+    {h:'KK Valid From', f:'kk_valid_from'},
+    {h:'KK Valid To', f:'kk_valid_to'},
+    {h:'SPPKP Number', f:'sppkp_number'},
+    {h:'SPPKP Attachment', f:'sppkp_attachment'},
+    {h:'SPPKP Valid From', f:'sppkp_valid_from'},
+    {h:'SPPKP Valid To', f:'sppkp_valid_to'},
+    {h:'Combing Number', f:'combing_number'},
+    {h:'Invoice Exchange Flag', f:'invoice_exchange_flag'},
+    {h:'NPWP (Old)', f:'npwp_old'},
+    {h:'NPWP (Old) Valid From', f:'npwp_valid_from'},
+    {h:'NPWP (Old) Valid To', f:'npwp_valid_to'},
+    {h:'KTP Valid To', f:'ktp_valid_to'},
+  ],
+  doc_attachment: [
+    {h:'Faktur Competitor', f:'faktur_competitor'},
+  ],
+  tax_doc_completion: [
+    {h:'Tax Category', f:'tax_category'},
+    {h:'Nomor NPWP', f:'npwp_number'},
+    {h:'NPWP Attachment', f:'npwp_attachment'},
+    {h:'Valid From', f:'valid_from'},
+    {h:'Valid To', f:'valid_to'},
+    {h:'NITKU Name', f:'nitku_name'},
+    {h:'NITKU Number', f:'nitku_number'},
+    {h:'NITKU Attachment', f:'nitku_attachment'},
+    {h:'Valid From', f:'nitku_valid_from'},
+    {h:'Valid To', f:'nitku_valid_to'},
+  ],
+  cust_finance_view: [
+    {h:'Company Code', f:'company_code'},
+    {h:'Recon Account', f:'recon_account'},
+    {h:'Sort Key', f:'sort_key'},
+    {h:'Planning Group', f:'planning_group'},
+    {h:'Previous Account No.', f:'previous_account_no'},
+    {h:'Terms of Payment', f:'payment_term'},
+    {h:'Payment Methods', f:'payment_methods'},
+    {h:'Clearing Supplier', f:'clearing_supplier'},
+    {h:'WTax Type', f:'wtax_type'},
+    {h:'W/Tax Code', f:'wtax_code'},
+    {h:'W/Tax Agent', f:'wtax_agent'},
+    {h:'Exemption Number', f:'exemption_number'},
+    {h:'Exem.%', f:'exemption_percent'},
+    {h:'Exempt From', f:'exempt_from'},
+    {h:'Exempt To', f:'exempt_to'},
+    {h:'Exempt.Reason', f:'exempt_reason'},
+    {h:'Payment History Record', f:'payment_hist'},
+  ],
+  sales_cust_view: [
+    {h:'Sales Organization', f:'sls_org'},
+    {h:'Distr. Channel', f:'dist_channel'},
+    {h:'Division', f:'division'},
+    {h:'Customer Group', f:'cust_group'},
+    {h:'Sales Office', f:'sls_office'},
+    {h:'Authorization Group - Sales', f:'auth_grp_sales'},
+    {h:'Order Probability', f:'order_probability'},
+    {h:'ABC Class', f:'abc_class'},
+    {h:'Rounding Off', f:'rounding_off'},
+    {h:'Currency', f:'currency'},
+    {h:'Exchange Rate Type', f:'exchange_rate_type'},
+    {h:'Price Group', f:'price_group'},
+    {h:'Customer Price Procedure', f:'cust_pricing_procedure'},
+    {h:'Price List', f:'price_list'},
+    {h:'Delivery Priority', f:'delivery_priority'},
+    {h:'Order Combination', f:'order_combination'},
+    {h:'Shipping Conditions', f:'shipping_conditions'},
+    {h:'POD Timeframe', f:'pod_timeframe'},
+    {h:'Maximum Partial Deliveries', f:'max_partial_deliveries'},
+    {h:'Subsequent Invoice Processing', f:'subs_invoice_proc'},
+    {h:'Rebate', f:'rebate'},
+    {h:'Price Determine', f:'price_determination'},
+    {h:'Invoicing Dates', f:'invoicing_dates'},
+    {h:'Invoice List Schedule', f:'invoice_list_schedule'},
+    {h:'Incoterms', f:'incoterms'},
+    {h:'Incoterms Location', f:'incoterms_location_1'},
+    {h:'Terms of Payment', f:'payment_terms'},
+    {h:'Account Assignment Group for Customer', f:'acct_assmt_group_cust'},
+    {h:'Departure Ctry/Reg', f:'departure_country_region'},
+    {h:'Tax Category', f:'tax_category'},
+    {h:'Tax Classification', f:'tax_classification'},
+    {h:'Customer Group 1', f:'customer_group_1'},
+    {h:'Customer Group 2', f:'customer_group_2'},
+    {h:'Customer Group 3', f:'customer_group3'},
+    {h:'Customer Group 4', f:'customer_group4'},
+    {h:'Customer Group 5', f:'customer_group5'},
+    {h:'Partner Function', f:'partner_functions'},
+    {h:'Partner Description', f:'partner_description'},
+    {h:'Order block All Sales Area', f:'order_block_all_area'},
+    {h:'Order block Selected Sales Area', f:'order_block_selected_area'},
+    {h:'POD Relevant', f:'pod_relevant'},
+    {h:'Default Partner', f:'default_partner'},
+    {h:'Delivering Plant', f:'delivering_plant'},
+  ],
+  cust_withholding_tax: [
+    {h:'W/Tax Code', f:'wtax_code'},
+    {h:'W/Tax Agent', f:'wtax_agent'},
+    {h:'Obligated From', f:'obligated_from'},
+    {h:'Obligated To', f:'obligated_to'},
+    {h:'Exemption Number', f:'exemption_number'},
+    {h:'Exem.%', f:'exemption_percent'},
+    {h:'Exempt From', f:'exempt_from'},
+    {h:'Exempt To', f:'exempt_to'},
+    {h:'Exempt Reason', f:'exempt_reason'},
+    {h:'WTax Type', f:'wtax_type'},
+    {h:'Company Code', f:'company_code'},
+  ],
+  salesman_view: [
+    {h:'Salesman ID', f:'salesman_bp_id'},
+    {h:'Visit Category', f:'visit_category'},
+    {h:'Visit Type', f:'visit_type'},
+    {h:'Custom Visit Date', f:'custom_visit_date'},
+    {h:'Validity From', f:'visit_valid_from'},
+    {h:'Visit Schedule', f:'visit_schedule'},
+  ],
+  credit_limit: [
+    {h:'Limit Not Define', f:'limit_not_define'},
+    {h:'Limit Defined', f:'limit_defined'},
+    {h:'Limit', f:'limit'},
+    {h:'Limit Valid Date', f:'limit_valid_to'},
+    {h:'Information Category', f:'info_category'},
+    {h:'Information Type', f:'info_type'},
+    {h:'Relevant', f:'relevant'},
+    {h:'Additional Limit Amount', f:'amount'},
+    {h:'Currency', f:'currency'},
+    {h:'Additional Limit Valid From', f:'amount_valid_from'},
+    {h:'Additional Limit Valid To', f:'amount_valid_to'},
+    {h:'Rules', f:'rules'},
+    {h:'Credit Segment', f:'credit_segment'},
+  ],
+};
+
+
+/* ============================================================
+   EXCEL TEMPLATE EXPORT (filled, matching uploaded template structure)
+   Fixed: headers match ZB02 master template exactly, correct order,
+          blank=empty, multiples=comma no space, id=sequential
+   ============================================================ */
+function downloadFilledTemplate() {
+  const fd = STATE.formData;
+  const bpType = STATE.currentBpType;
+  const fmap = fd.field_map?.[bpType] || {};
+  const wb = XLSX.utils.book_new();
+
+  // --- Header sheet (like ZA02 example) ---
+  const headerAoa = [
+    ['CR ID', fd.bp_types?.[bpType]?.cr_type || 'CR01'],
+    ['BP Type ID', bpType]
+  ];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(headerAoa), 'Header');
+
+  // --- Helper: format cell value for export ---
+  function formatExportValue(val) {
+    if (val == null || val === '') return '';               // blank = empty
+    if (val === '-' || val === '—') return '';              // dash = empty
+    if (val === true || val === 'true' || val === 'TRUE') return 'X';
+    if (val === false || val === 'false' || val === 'FALSE') return '';
+    if (Array.isArray(val)) return val.filter(Boolean).join(',');  // multi: comma, no space
+    if (typeof val === 'string') {
+      // Fix: if value contains spaces between short codes (like "BP SP PY"), convert to comma-sep
+      // But only if it looks like a list of short codes (2-5 chars each, all uppercase)
+      const trimmed = val.trim();
+      if (/^[A-Z0-9]{1,6}(\s+[A-Z0-9]{1,6})+$/.test(trimmed)) {
+        return trimmed.split(/\s+/).join(',');
+      }
+      // If already comma-separated with spaces, remove spaces after commas
+      if (/,\s+/.test(trimmed)) {
+        return trimmed.split(/,\s*/).join(',');
+      }
+    }
+    return val;
+  }
+
+  // --- For each section that exists in the BP type's field_map ---
+  const sectionOrder = [
+    'general_view', 'relation_view', 'doc_completion', 'doc_attachment',
+    'tax_doc_completion', 'cust_finance_view', 'sales_cust_view',
+    'cust_withholding_tax', 'salesman_view', 'credit_limit'
+  ];
+
+  sectionOrder.forEach(secKey => {
+    const secFieldMap = fmap[secKey];
+    if (!secFieldMap) return; // section not applicable for this BP type
+
+    const masterCols = TEMPLATE_SECTION_COLUMNS[secKey];
+    if (!masterCols) return;
+
+    // Filter: only include columns whose field_name exists in the BP type's field_map for this section
+    const secFieldNames = new Set(Object.keys(secFieldMap));
+    const activeCols = masterCols.filter(col => secFieldNames.has(col.f));
+
+    if (activeCols.length === 0) return;
+
+    // Build header row: 'id' + active column headers
+    const headers = ['id', ...activeCols.map(c => c.h)];
+    const aoa = [headers];
+
+    // Build data rows from drafts
+    STATE.drafts.forEach((draft, di) => {
+      const sd = draft.sections?.[secKey] || {};
+      const gv = draft.sections?.general_view || {};
+
+      const row = [di + 1]; // id = sequential starting from 1
+
+      activeCols.forEach(col => {
+        const fname = col.f;
+        const fmeta = getFieldMeta(fname);
+
+        // Composed fields
+        if (fmeta.export_value === 'empty') {
+          row.push('');
+          return;
+        }
+        if (fmeta.export_value === 'composed') {
+          if (fname === 'name_1') { row.push(formatExportValue(composeName(gv) || sd[fname] || gv[fname] || '')); return; }
+          if (fname === 'address') { row.push(formatExportValue(composeAddress(gv))); return; }
+          if (fmeta.compose_from) {
+            const composed = fmeta.compose_from.map(f => gv[f] || sd[f] || '').filter(Boolean).join(' ');
+            row.push(formatExportValue(composed));
+            return;
+          }
+        }
+
+        // Pull value: from section data, fallback to general_view
+        let val = sd[fname];
+        if (val == null || val === '') val = gv[fname];
+        if (val == null) val = '';
+
+        row.push(formatExportValue(val));
+      });
+
+      aoa.push(row);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    XLSX.utils.book_append_sheet(wb, ws, secKey);
+  });
+
+  // --- Also handle partner_function_view if present ---
+  if (fmap['partner_function_view']) {
+    // partner_function_view uses Sales Organization, Distr. Channel, Division from ZB02
+    const pfCols = [
+      {h:'Sales Organization', f:'sls_org'},
+      {h:'Distr. Channel', f:'dist_channel'},
+      {h:'Division', f:'division'},
+      {h:'Partner Function', f:'partner_functions'},
+      {h:'BP Number Partner', f:'bp_id_partner'},
+      {h:'Partner Description', f:'partner_desc'},
+    ];
+    const pfFieldMap = fmap['partner_function_view'];
+    const pfFieldNames = new Set(Object.keys(pfFieldMap));
+    const pfActive = pfCols.filter(c => pfFieldNames.has(c.f));
+    if (pfActive.length > 0) {
+      const headers = ['id', ...pfActive.map(c => c.h)];
+      const aoa = [headers];
+      STATE.drafts.forEach((draft, di) => {
+        const sd = draft.sections?.partner_function_view || {};
+        const gv = draft.sections?.general_view || {};
+        const row = [di + 1];
+        pfActive.forEach(col => {
+          let val = sd[col.f];
+          if (val == null || val === '') val = gv[col.f];
+          if (val == null) val = '';
+          row.push(formatExportValue(val));
+        });
+        aoa.push(row);
+      });
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'partner_function_view');
+    }
+  }
+
+  // --- Fallback: sections in field_map but NOT in TEMPLATE_SECTION_COLUMNS ---
+  // (e.g. vendor_finance_view, vendor_procurement_view, vendor_withholding_tax, bank_info)
+  const handledSections = new Set([...sectionOrder, 'partner_function_view']);
+  Object.keys(fmap).forEach(secKey => {
+    if (handledSections.has(secKey)) return;
+    const secFieldMap = fmap[secKey];
+    if (!secFieldMap || Object.keys(secFieldMap).length === 0) return;
+    const headers = ['id'];
+    const fieldNames = [];
+    Object.entries(secFieldMap).forEach(([fname, info]) => {
+      headers.push(info.label || fname);
+      fieldNames.push(fname);
+    });
+    const aoa = [headers];
+    STATE.drafts.forEach((draft, di) => {
+      const sd = draft.sections?.[secKey] || {};
+      const gv = draft.sections?.general_view || {};
+      const row = [di + 1];
+      fieldNames.forEach(fname => {
+        let val = sd[fname];
+        if (val == null || val === '') val = gv[fname];
+        if (val == null) val = '';
+        row.push(formatExportValue(val));
+      });
+      aoa.push(row);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), secKey);
+  });
+
+  // --- Dropdown_LOV reference sheet ---
+  const lov = fd.dropdown_lov || {};
+  const lovAoa = [['LOV_Name','ID','Description']];
+  Object.entries(lov).forEach(([k, arr]) => {
+    if (Array.isArray(arr)) arr.forEach(it => {
+      lovAoa.push([k, it.id ?? it, it.desc ?? '']);
+    });
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(lovAoa), 'Dropdown_LOV');
+
+  // --- _dv_data ---
+  const dv = fd.dv_data || {};
+  const dvAoa = [['Category','Value']];
+  Object.entries(dv).forEach(([k, arr]) => {
+    if (Array.isArray(arr)) arr.forEach(v => dvAoa.push([k, v]));
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dvAoa), '_dv_data');
+
+  const dt = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `Template_CR_Creation_${bpType}_filled_${dt}.xlsx`);
+}
+
+
+/* ============================================================
+   EMAIL SUBMIT — comprehensive body with document info
+   No database storage. Documents attached via email only.
+   ============================================================ */
+function submitViaEmail() {
+  const fd = STATE.formData;
+  const bpType = STATE.currentBpType;
+  const bpDesc = fd.bp_types[bpType]?.description || '';
+  const crType = fd.bp_types[bpType]?.cr_type || '';
+  const requestor = STATE.settings.requestor || '(belum diisi)';
+  const entity = (bpType.startsWith('ZA') || bpType.startsWith('ZB') || bpType.startsWith('ZJ')) ? 'Vendor' : 'Customer';
+
+  // Validate mandatory documents
+  const reqDocs = getDocRequirements(bpType);
+  const mandDocs = reqDocs.filter(d => d.mandatory);
+  const missingDocs = [];
+  STATE.drafts.forEach((d, i) => {
+    const gv = d.sections?.general_view || {};
+    const name = composeName(gv) || `Draft ${i+1}`;
+    mandDocs.forEach(doc => {
+      if (!(d.attachments || []).some(a => a.slot === doc.key)) {
+        missingDocs.push(`${name}: ${doc.label}`);
+      }
+    });
+  });
+  if (missingDocs.length > 0) {
+    const proceed = confirm(
+      `⚠️ Dokumen wajib belum lengkap:\n\n${missingDocs.join('\n')}\n\nLanjutkan submit tanpa dokumen tersebut?`
+    );
+    if (!proceed) return;
+  }
+
+  const subject = `${EMAIL_CONFIG.subjectPrefix} — ${bpType} (${entity}) — ${STATE.drafts.length} record(s) — ${requestor}`;
+
+  let body = `Dear BP Creation Team,\n\n`;
+  body += `Berikut request pembuatan Business Partner.\n\n`;
+  body += `══════════════════════════════════════\n`;
+  body += `  INFORMASI REQUEST\n`;
+  body += `══════════════════════════════════════\n`;
+  body += `BP Type      : ${bpType} — ${bpDesc}\n`;
+  body += `Entity       : ${entity}\n`;
+  body += `CR Type      : ${crType}\n`;
+  body += `Requestor    : ${requestor}\n`;
+  body += `Tanggal      : ${new Date().toLocaleString('id-ID')}\n`;
+  body += `Jumlah Record: ${STATE.drafts.length}\n\n`;
+
+  // Per-draft detail
+  STATE.drafts.forEach((d, i) => {
+    const gv = d.sections?.general_view || {};
+    const name = composeName(gv) || '(tanpa nama)';
+    body += `══════════════════════════════════════\n`;
+    body += `  RECORD ${i+1}: ${name}\n`;
+    body += `══════════════════════════════════════\n`;
+    body += `Nama         : ${name}\n`;
+    body += `NPWP         : ${d.sections?.tax_doc_completion?.npwp_number || '-'}\n`;
+    body += `KTP          : ${d.sections?.tax_doc_completion?.ktp_number || '-'}\n`;
+    body += `Alamat       : ${composeAddress(gv) || '-'}\n`;
+    body += `Kelurahan    : ${gv.sub_district || '-'}\n`;
+    body += `Kecamatan    : ${gv.district || '-'}\n`;
+    body += `Kab/Kota     : ${gv.regency || gv.city || '-'}\n`;
+    body += `Provinsi     : ${gv.province || '-'}\n`;
+    body += `Kode Pos     : ${gv.postal_code || '-'}\n`;
+    body += `Email        : ${gv.email || '-'}\n`;
+    body += `Phone        : ${gv.phone || '-'}\n`;
+
+    // Company & finance
+    const cfv = d.sections?.cust_finance_view || {};
+    if (cfv.company_code) body += `Company Code : ${cfv.company_code}\n`;
+    if (cfv.sales_org) body += `Sales Org    : ${cfv.sales_org}\n`;
+
+    // Document listing
+    const docCount = (d.attachments || []).length;
+    body += `\n--- DOKUMEN TERLAMPIR (${docCount}) ---\n`;
+    if (docCount > 0) {
+      (d.attachments || []).forEach((a, ai) => {
+        const docMeta = STATE.formData.document_meta?.[a.slot] || {};
+        body += `  ${ai+1}. ${a.label || docMeta.label || a.slot}\n`;
+        body += `     File     : ${a.filename} (${(a.size/1024).toFixed(0)} KB)\n`;
+        body += `     Pemilik  : ${a.owner || '-'}\n`;
+        body += `     Ket.     : ${a.note || '-'}\n`;
+        body += `     Download : vendor${i+1}_${a.slot}_${a.filename}\n`;
+      });
+    } else {
+      body += `  (tidak ada dokumen di-upload)\n`;
+    }
+
+    // Missing mandatory docs warning
+    const thisMissing = mandDocs.filter(doc => !(d.attachments || []).some(a => a.slot === doc.key));
+    if (thisMissing.length > 0) {
+      body += `\n  ⚠️ DOKUMEN WAJIB BELUM UPLOAD:\n`;
+      thisMissing.forEach(doc => {
+        body += `    - ${doc.label}\n`;
+      });
+    }
+    body += `\n`;
+  });
+
+  body += `══════════════════════════════════════\n`;
+  body += `  CATATAN\n`;
+  body += `══════════════════════════════════════\n`;
+  body += `• File Excel template (terisi, siap upload) sudah di-download otomatis.\n`;
+  body += `  Nama file: Template_CR_Creation_${bpType}_filled_${new Date().toISOString().slice(0,10)}.xlsx\n`;
+  body += `• File dokumen pendukung sudah di-download terpisah.\n`;
+  body += `  Mohon attach SEMUA file dari folder Downloads ke email ini.\n`;
+  body += `• Dokumen TIDAK disimpan di database — hanya dikirim via email.\n\n`;
+  body += `Terima kasih,\n${requestor}\n`;
+
+  // Trigger excel download first
+  downloadFilledTemplate();
+
+  // Collect all attachment files for download
+  const allAttachments = [];
+  STATE.drafts.forEach((d, di) => {
+    (d.attachments || []).forEach(a => {
+      allAttachments.push({
+        ...a,
+        downloadName: `vendor${di+1}_${a.slot}_${a.filename}`
+      });
+    });
+  });
+
+  // Send email via configured method
+  sendEmail(subject, body, allAttachments);
+}
+
+/* ============================================================
+   IMPORT/EXPORT JSON
+   ============================================================ */
+function exportDraftsJson() {
+  const blob = new Blob([JSON.stringify({drafts: STATE.drafts, bpType: STATE.currentBpType}, null, 2)], {type: 'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `bp_drafts_${STATE.currentBpType}_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+}
+async function importDraftsJson(e) {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const data = JSON.parse(await f.text());
+    if (data.bpType) {
+      STATE.currentBpType = data.bpType;
+      $('#pickBpType').value = data.bpType;
+    }
+    STATE.drafts = data.drafts || [createEmptyDraft()];
+    STATE.currentDraftIdx = 0;
+    enterFormStep();
+  } catch (err) { alert('Gagal load: ' + err.message); }
+}
+
+/* ============================================================
+   YENI BOT (chat with Cloudflare Worker / Qwen)
+   ============================================================ */
+const YENI_HISTORY = [];
+
+function openYeni() {
+  $('#yeniBubble')?.classList.add('hidden');
+  $('#yeniLauncher').classList.add('hidden');
+  $('#yeniPanel').classList.remove('hidden');
+  if (YENI_HISTORY.length === 0) {
+    addYeniMessage('assistant', 'Hi! Saya Yeni 👋 Asisten pengisian form BP Creation.\n\nSaya bisa bantu:\n• Jelaskan fungsi & format field\n• Info dokumen wajib per BP Type\n• Kenapa field terkunci/auto-isi\n• Arti value dropdown\n• Validasi draft kamu\n\nSilakan tanya atau klik saran di bawah!');
+  }
+}
+
+function addYeniMessage(role, text) {
+  YENI_HISTORY.push({role, content: text});
+  const wrap = $('#yeniMessages');
+  const div = document.createElement('div');
+  div.className = role === 'user' ? 'flex justify-end' : 'flex justify-start';
+  div.innerHTML = `<div class="${role==='user'?'bg-blue-600 text-white':'bg-white border border-slate-200'} rounded-2xl px-3 py-2 max-w-[85%] text-sm whitespace-pre-wrap">${esc(text)}</div>`;
+  wrap.appendChild(div);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+function addYeniTyping() {
+  const wrap = $('#yeniMessages');
+  const div = document.createElement('div');
+  div.id = 'yeniTyping';
+  div.className = 'flex justify-start';
+  div.innerHTML = `<div class="bg-white border border-slate-200 rounded-2xl px-3 py-2 text-sm"><span class="typing-dot">●</span> <span class="typing-dot">●</span> <span class="typing-dot">●</span></div>`;
+  wrap.appendChild(div); wrap.scrollTop = wrap.scrollHeight;
+}
+function removeYeniTyping() { document.getElementById('yeniTyping')?.remove(); }
+
+/* Robust worker call — handles HTML error pages, non-JSON responses,
+   CORS failures, and Cloudflare error pages. */
+async function callYeniWorker(systemPrompt, messages) {
+  const url = (STATE.settings.workerUrl || '').trim();
+  if (!url) throw new Error('Worker URL belum diset. Buka ⚙️ Settings.');
+  if (!/^https?:\/\//i.test(url)) throw new Error('Worker URL harus diawali https:// — cek Settings.');
+
+  let res;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ system: systemPrompt, messages })
+    });
+  } catch (netErr) {
+    throw new Error('Tidak bisa connect ke Worker (CORS / network / URL salah): ' + netErr.message);
+  }
+
+  // Read raw text first — never blindly call res.json()
+  const raw = await res.text();
+  const ct = (res.headers.get('content-type') || '').toLowerCase();
+
+  // HTTP error?
+  if (!res.ok) {
+    // Try to extract a useful message
+    let msg = `Worker HTTP ${res.status}`;
+    if (ct.includes('application/json')) {
+      try { const j = JSON.parse(raw); msg += ' — ' + (j.error || j.message || raw.slice(0,200)); } catch {}
+    } else if (raw.trim().startsWith('<')) {
+      // Cloudflare or generic HTML error page
+      const titleMatch = raw.match(/<title[^>]*>([^<]+)<\/title>/i);
+      const cfErr = raw.match(/Error\s+(\d{3,4})[^<]*/i);
+      msg += ' — ' + (cfErr ? cfErr[0] : (titleMatch ? titleMatch[1].trim() : 'Cloudflare error page'));
+      msg += '\n💡 Cek: (1) Worker sudah deployed? (2) AI binding aktif di wrangler.toml? (3) URL benar?';
+    } else {
+      msg += ' — ' + raw.slice(0, 200);
+    }
+    throw new Error(msg);
+  }
+
+  // OK status but content might still not be JSON
+  if (raw.trim().startsWith('<')) {
+    throw new Error('Worker mengembalikan HTML, bukan JSON. Worker URL mungkin salah (mengarah ke landing page Cloudflare). Cek Settings.');
+  }
+  let data;
+  try { data = JSON.parse(raw); }
+  catch (e) {
+    throw new Error('Response Worker bukan JSON valid: ' + raw.slice(0, 200));
+  }
+  if (data.error) throw new Error('Worker error: ' + data.error);
+  return data.response || '(no response)';
+}
+
+async function sendYeniMessage() {
+  const inp = $('#yeniInput');
+  const text = inp.value.trim();
+  if (!text) return;
+  inp.value = '';
+  addYeniMessage('user', text);
+
+  addYeniTyping();
+  try {
+    const sys = buildYeniSystemPrompt();
+    const reply = await callYeniWorker(sys, YENI_HISTORY.filter(m => m.role !== 'system').slice(-10));
+    removeYeniTyping();
+    addYeniMessage('assistant', reply);
+  } catch (err) {
+    removeYeniTyping();
+    addYeniMessage('assistant', '⚠️ ' + err.message);
+  }
+}
+
+function buildYeniSystemPrompt() {
+  const fd = STATE.formData;
+  const bp = STATE.currentBpType;
+  const draft = STATE.drafts[STATE.currentDraftIdx];
+  const fmKeys = Object.keys(fd?.field_map?.[bp] || {});
+
+  // Build field knowledge: list all visible fields with label, mandatory, widget type, format hint
+  let fieldKnowledge = '';
+  const fm = fd?.field_map?.[bp] || {};
+  for (const sec of Object.keys(fm)) {
+    const secLabel = fd.section_display?.[sec] || sec;
+    const fields = fm[sec];
+    const flines = Object.entries(fields).map(([fn, meta]) => {
+      const fmeta = fd.field_metadata?.[fn] || {};
+      const mFlag = meta.mandatory ? 'WAJIB' : 'opsional';
+      const hint = fmeta.format_hint || '';
+      const widget = fmeta.widget || 'text';
+      const deriveInfo = fmeta.derive_from ? ` [auto-derive dari: ${fmeta.derive_from.join(', ')}]` : '';
+      return `  - ${meta.label} (${fn}): ${mFlag}, tipe=${widget}${hint ? ', format: '+hint : ''}${deriveInfo}`;
+    });
+    if (flines.length) fieldKnowledge += `\n[${secLabel}]\n${flines.join('\n')}`;
+  }
+
+  // Build document knowledge for current BP type
+  const docs = getDocRequirements(bp);
+  const docMandatory = docs.filter(d => d.mandatory).map(d => d.label);
+  const docOptional = docs.filter(d => !d.mandatory).map(d => d.label);
+  const docKnowledge = `Dokumen WAJIB: ${docMandatory.join(', ') || '(tidak ada)'}
+Dokumen Opsional: ${docOptional.join(', ') || '(tidak ada)'}`;
+
+  // Build dropdown summary (top values for key fields)
+  let dropdownKnowledge = '';
+  const keyDropdowns = ['company_code','sales_org','risk_class','country','bank_country','terms_of_payment','recon_account','tax_classification','customer_group'];
+  for (const fn of keyDropdowns) {
+    const lov = fd.dropdown_lov?.[fd.field_metadata?.[fn]?.lov] || fd.dropdown_lov?.[fd.field_options?.[fn]] || [];
+    if (lov.length > 0) {
+      const items = lov.slice(0, 8).map(x => `${x.id}=${x.desc||x.id}`).join(', ');
+      dropdownKnowledge += `  ${fn}: ${items}${lov.length > 8 ? ` ... (${lov.length} total)` : ''}\n`;
+    }
+  }
+
+  // Current draft data snapshot
+  const draftSnap = JSON.stringify(draft?.sections || {}).substring(0, 1200);
+
+  return `Kamu adalah Yeni, asisten AI yang ramah dan profesional untuk form BP Creation Wings Group.
+Jawab dalam Bahasa Indonesia, singkat (maks 5 kalimat), dan langsung ke poin.
+
+═══ KONTEKS SAAT INI ═══
+BP Type: ${bp} (${fd?.bp_types?.[bp]?.description || ''})
+Entity: ${bp?.startsWith('ZA') || bp?.startsWith('ZB') || bp?.startsWith('ZJ') ? 'Vendor' : 'Customer'}
+Section tersedia: ${fmKeys.join(', ')}
+
+═══ DAFTAR FIELD & STATUS ═══${fieldKnowledge}
+
+═══ DOKUMEN REQUIREMENTS (${bp}) ═══
+${docKnowledge}
+
+═══ DROPDOWN VALUES (ringkasan) ═══
+${dropdownKnowledge}
+═══ ATURAN DERIVASI OTOMATIS ═══
+1. Company Code → filter Sales Org (dari CompanySorg)
+2. Sales Org → Distribution Channel, Division, Sales Office, Plant (dari Mapping Area)
+3. Risk Class → Check Rule (otomatis)
+4. Bank Country → filter Bank Key (dari Master Bank Info)
+5. Country + BP Type → filter Term of Payment
+6. BP Type + Country → filter Recon Account
+7. Province → Regency → District → Sub-District → Postal Code + Region (cascade geo)
+8. Customer Group (CG) → CG1 (Type) → CG2 (Size) cascade
+9. Prefix Name + Name 1 → auto-join ke kolom Name 1 di template
+10. Prefix Address + Street + Blok + No + RT/RW → auto-join ke Address (Full)
+
+Field yang TERKUNCI (read-only) berarti auto-derived. User harus isi field INDUK dulu.
+Contoh: Kecamatan terkunci → user harus pilih Province, lalu Regency, baru District muncul.
+Contoh: Sales Org terkunci → user harus pilih Company Code dulu.
+
+═══ DRAFT SAAT INI ═══
+${draftSnap}
+
+═══ TUGAS KAMU ═══
+1. Jelaskan fungsi setiap field jika ditanya (NPWP, NITKU, Recon Account, Risk Class, dll)
+2. Beri tau format benar (NPWP 15-16 digit, KTP 16 digit, phone +62, dll)
+3. Jelaskan kenapa field auto-isi atau terkunci (cek aturan derivasi)
+4. Beri tau dokumen wajib/opsional per BP Type
+5. Validasi semantic data draft jika diminta
+6. Jelaskan arti value dropdown jika ditanya
+Jangan jawab hal di luar konteks form BP.`;
+}
+
+async function validateWithYeni() {
+  openYeni();
+  addYeniMessage('user', 'Tolong validasi semua field di draft saya saat ini.');
+  addYeniTyping();
+  try {
+    const sys = buildYeniSystemPrompt();
+    const draft = STATE.drafts[STATE.currentDraftIdx];
+    const userMsg = `Validasi data berikut. Sebutkan masalah seperti format salah, prefix tidak konsisten, alamat aneh, NPWP salah, dll. Berikan rekomendasi perbaikan yang jelas.\n\n${JSON.stringify(draft.sections, null, 2)}`;
+    const reply = await callYeniWorker(sys, [{role:'user', content: userMsg}]);
+    removeYeniTyping();
+    addYeniMessage('assistant', reply);
+  } catch (err) {
+    removeYeniTyping();
+    addYeniMessage('assistant', '⚠️ ' + err.message);
+  }
+}
+
+/* ============================================================
+   EXTEND MODE — Bank Data, Rolling 3rd Party, Rolling Sales Employee
+   ============================================================ */
+
+// Dropdown master extracted from BP Structure - Master.csv
+const BP_DROPDOWNS = {"bank_country":[["AD","Andorra"],["AE","Utd.Arab Emir."],["AF","Afghanistan"],["AG","Antigua/Barbuda"],["AI","Anguilla"],["AL","Albania"],["AM","Armenia"],["AO","Angola"],["AQ","Antarctica"],["AR","Argentina"],["AS","Samoa, America"],["AT","Austria"],["AU","Australia"],["AW","Aruba"],["AX","Aland Islands"],["AZ","Azerbaijan"],["BA","Bosnia-Herz."],["BB","Barbados"],["BD","Bangladesh"],["BE","Belgium"],["BF","Burkina Faso"],["BG","Bulgaria"],["BH","Bahrain"],["BI","Burundi"],["BJ","Benin"],["BL","St. Barthelemy"],["BM","Bermuda"],["BN","Brunei Daruss."],["BO","Bolivia"],["BQ","Bonaire, Saba"],["BR","Brazil"],["BS","Bahamas"],["BT","Bhutan"],["BV","Bouvet Island"],["BW","Botswana"],["BY","Belarus"],["BZ","Belize"],["CA","Canada"],["CC","Keeling Islands"],["CD","Rep.of Congo"],["CF","Cent. Afr. Rep."],["CG","Rep.of Congo"],["CH","Switzerland"],["CI","Cote d'Ivoire"],["CK","Cook Islands"],["CL","Chile"],["CM","Cameroon"],["CN","China"],["CO","Colombia"],["CR","Costa Rica"],["CU","Cuba"],["CV","Cabo Verde"],["CW","Curacao"],["CX","Christmas Islnd"],["CY","Cyprus"],["CZ","Czech Republic"],["DE","Germany"],["DJ","Djibouti"],["DK","Denmark"],["DM","Dominica"],["DO","Dominican Rep."],["DZ","Algeria"],["EC","Ecuador"],["EE","Estonia"],["EG","Egypt"],["EH","Western Sahara"],["ER","Eritrea"],["ES","Spain"],["ET","Ethiopia"],["FI","Finland"],["FJ","Fiji"],["FK","Falkland Islnds"],["FM","Micronesia"],["FO","Faroe Islands"],["FR","France"],["GA","Gabon"],["GB","United Kingdom"],["GD","Grenada"],["GE","Georgia"],["GF","French Guiana"],["GG","Guernsey"],["GH","Ghana"],["GI","Gibraltar"],["GL","Greenland"],["GM","Gambia"],["GN","Guinea"],["GP","Guadeloupe"],["GQ","Equatorial Guin"],["GR","Greece"],["GS","S. Sandwich Ins"],["GT","Guatemala"],["GU","Guam"],["GW","Guinea-Bissau"],["GY","Guyana"],["HK","Hong Kong"],["HM","Heard/McDon.Isl"],["HN","Honduras"],["HR","Croatia"],["HT","Haiti"],["HU","Hungary"],["ID","Indonesia"],["IE","Ireland"],["IL","Israel"],["IM","Isle of Man"],["IN","India"],["IO","Brit.Ind.Oc.Ter"],["IQ","Iraq"],["IR","Iran"],["IS","Iceland"],["IT","Italy"],["JE","Jersey"],["JM","Jamaica"],["JO","Jordan"],["JP","Japan"],["KE","Kenya"],["KG","Kyrgyzstan"],["KH","Cambodia"],["KI","Kiribati"],["KM","Comoros"],["KN","St Kitts&Nevis"],["KP","North Korea"],["KR","South Korea"],["KW","Kuwait"],["KY","Cayman Islands"],["KZ","Kazakhstan"],["LA","Laos"],["LB","Lebanon"],["LC","Saint Lucia"],["LI","Liechtenstein"],["LK","Sri Lanka"],["LR","Liberia"],["LS","Lesotho"],["LT","Lithuania"],["LU","Luxembourg"],["LV","Latvia"],["LY","Libya"],["MA","Morocco"],["MC","Monaco"],["MD","Moldova"],["ME","Montenegro"],["MF","St. Martin"],["MG","Madagascar"],["MH","Marshall Islnds"],["MK","North Macedonia"],["ML","Mali"],["MM","Myanmar"],["MN","Mongolia"],["MO","Macao"],["MP","N.Mariana Islnd"],["MQ","Martinique"],["MR","Mauritania"],["MS","Montserrat"],["MT","Malta"],["MU","Mauritius"],["MV","Maldives"],["MW","Malawi"],["MX","Mexico"],["MY","Malaysia"],["MZ","Mozambique"],["NA","Namibia"],["NC","New Caledonia"],["NE","Niger"],["NF","Norfolk Island"],["NG","Nigeria"],["NI","Nicaragua"],["NL","Netherlands"],["NO","Norway"],["NP","Nepal"],["NR","Nauru"],["NU","Niue"],["NZ","New Zealand"],["OM","Oman"],["PA","Panama"],["PE","Peru"],["PF","Frenc.Polynesia"],["PG","Pap. New Guinea"],["PH","Philippines"],["PK","Pakistan"],["PL","Poland"],["PM","StPier.,Miquel."],["PN","Pitcairn Is.Gr."],["PR","Puerto Rico"],["PS","Palestine"],["PT","Portugal"],["PW","Palau"],["PY","Paraguay"],["QA","Qatar"],["RE","Reunion"],["RO","Romania"],["RS","Serbia"],["RU","Russian Fed."],["RW","Rwanda"],["SA","Saudi Arabia"],["SB","Solomon Islands"],["SC","Seychelles"],["SD","Sudan"],["SE","Sweden"],["SG","Singapore"],["SH","Saint Helena"],["SI","Slovenia"],["SJ","Spitzbergen"],["SK","Slovakia"],["SL","Sierra Leone"],["SM","San Marino"],["SN","Senegal"],["SO","Somalia"],["SR","Suriname"],["SS","South Sudan"],["ST","S.Tome,Principe"],["SV","El Salvador"],["SX","Sint Maarten"],["SY","Syria"],["SZ","Eswatini"],["TC","Turks&Caicos I."],["TD","Chad"],["TF","French S.Territ"],["TG","Togo"],["TH","Thailand"],["TJ","Tajikistan"],["TK","Tokelau"],["TL","Timor-Leste"],["TM","Turkmenistan"],["TN","Tunisia"],["TO","Tonga"],["TR","Türkiye"],["TT","Trinidad,Tobago"],["TV","Tuvalu"],["TW","Taiwan"],["TZ","Tanzania"],["UA","Ukraine"],["UG","Uganda"],["UM","Minor Outl.Isl."],["US","USA"],["UY","Uruguay"],["UZ","Uzbekistan"],["VA","Vatican City"],["VC","Saint Vincent"],["VE","Venezuela"],["VG","Brit.Virgin Is."],["VI","US Virgin Isl."],["VN","Vietnam"],["VU","Vanuatu"],["WF","Wallis,Futuna"],["WS","Samoa"],["YE","Yemen"],["YT","Mayotte"],["ZA","South Africa"],["ZM","Zambia"],["ZW","Zimbabwe"]],"bank_key":[["ABNJKT","1AA0 - STA1 Jakarta"],["ABNMDN","1AB0 - STA2 Jakarta"],["AEBJKT","1AD0 - PAS Jakarta"],["AGIBDG","1AF0 - TAS Head Office"],["AGIJKT","1AK0 - MIM Jakarta"],["AGITGR","2AA0 - STA Bogor"],["AKIJKT","2AB0 - STA Pasar Anyar Hub"],["ALFJKT","2AC0 - STA Cibinong Hub"],["ANGSBY","2AD0 - STA Cikampek"],["ANKSBY","2AE0 - STA Sukabumi"],["ANZJKT","2AF0 - STA Sagaranten"],["ARTBDG","2AH0 - STA Serang"],["ARTJKT","2AI0 - STA Tangerang"],["B9JJAM","2AJ0 - STA Grogol Hub"],["BADSBY","2AK0 - STA Cikokol Hub"],["BAGJKT","2AM0 - STA Cileunyi"],["BAGLAM","2AN0 - STA Cibiru Hub"],["BBIBDG","2AO0 - STA Sumedang"],["BBIJKT","2AP0 - STA Subang"],["BBMJKT","2AQ0 - STA Cianjur"],["BCAACE","2AR0 - STA Garut"],["BCABDG","2AS0 - STA Rangkasbitung"],["BCABGK","2AU0 - STA Mampang"],["BCABGR","2AV0 - STA Lebak"],["BCABJD","2AW0 - STA Palabuhan Ratu"],["BCABJN","2AY0 - STA Jatiasih"],["BCABKA","2AZ0 - STA Kramatjati Hub"],["BCABKP","2BA0 - STA Kranggan Hub"],["BCABKS","2BB0 - STA Sindang Barang"],["BCABKT","2BD0 - STA Tambun"],["BCABKU","2BF0 - STA Cikarang Hub"],["BCABLI","2BG0 - STA Karawang"],["BCABLT","2BH0 - STA Marunda"],["BCABRE","2BI0 - STA Pulogadung Hub"],["BCABTM","2BJ0 - STA Jakarta Hub"],["BCABUN","2BK0 - STA Cilegon"],["BCABYS","2BL0 - STA Bandung"],["BCACIM","2BM0 - STA Cimahi Hub"],["BCACJR","2BP0 - STA Leuwiliang"],["BCACLG","2BQ0 - STA Soreang"],["BCACRB","2BS0 - STA Serpong"],["BCADPK","2BT0 - STA Bintaro Hub"],["BCADPS","2BU0 - STA Ciledug Hub"],["BCAGRT","2BW0 - STA Sadang"],["BCAIDU","2BX0 - STA Kamal"],["BCAJAM","2BY0 - STA Rengasdengklok"],["BCAJEP","2BZ0 - STA Cicurug"],["BCAJKT","2CB0 - STA Jonggol"],["BCAKEB","2CC0 - STA Pameungpeuk"],["BCAKED","2CE0 - STA Padalarang"],["BCAKER","2CF0 - STA Tomo"],["BCAKET","2CG0 - STA Pamanukan"],["BCAKLA","2CH0 - STA Labuan"],["BCAKRO","3AA0 - JAD Jatiasih"],["BCAKRR","3AB0 - JAD Kramatjati Hub"],["BCAKRW","3AC0 - JAD Kranggan Hub"],["BCAKUD","3AD0 - TMB Tambun"],["BCALAB","3AF0 - TMB Cikarang Hub"],["BCALAM","3AG0 - KRW Karawang"],["BCALBL","3AH0 - KRW Rengasdengklok"],["BCALEB","3AI0 - MRD Marunda"],["BCALHO","3AJ0 - MRD Mampang"],["BCAMAK","3AK0 - MRD Pulogadung Hub"],["BCAMDN","3AL0 - MRD Jakarta Hub"],["BCAMET","3AM0 - LBK Lebak"],["BCAMGL","3AN0 - PLR Palabuhan Ratu"],["BCAMJK","3AO0 - CLG Cilegon"],["BCAMLG","3AP0 - GPM Garut"],["BCAMUB","3AQ0 - GPM Sumedang"],["BCAMUE","3AR0 - GPM Pameungpeuk"],["BCANGN","3AS0 - CAU Cianjur"],["BCAOKU","3AT0 - CAU Sindang Barang"],["BCAPAL","3AU0 - BUM Bandung"],["BCAPAT","3AV0 - BUM Cimahi Hub"],["BCAPBA","3AX0 - SKB Sukabumi"],["BCAPDG","3AY0 - SKB Sagaranten"],["BCAPKB","3AZ0 - LSP Leuwiliang"],["BCAPKP","3BA0 - SAL Serpong"],["BCAPML","3BB0 - SAL Bintaro Hub"],["BCAPON","3BE0 - SOG Soreang"],["BCAPRO","3BF0 - CMA Cikampek"],["BCAPSR","3BG0 - CMA Sadang"],["BCAPTS","3BH0 - SMS Subang"],["BCAPWA","3BI0 - TPM Tangerang"],["BCASAL","3BJ0 - TPM Cikokol Hub"],["BCASBY","3BK0 - TPM Ciledug Hub"],["BCASDA","3BL0 - CLM Cileunyi"],["BCASDB","3BM0 - CLM Cibiru Hub"],["BCASKB","3BP0 - BAM Pasar Anyar Hub"],["BCASUB","3BU0 - CAR Cicurug"],["BCATGR","3BW0 - SKS Tomo"],["BJBBDG","6BD0 - RPM-Sindang Barang"],["BJBBGR","6BE0 - RPM-Cikokol"],["BJBJKT","6BH0 - RPM-Tambun Hub"],["BJBLEB","6BJ0 - RPM-Ciledug Hub"],["BNIBDG","6BU0 - RPM-Jatibarang"],["BNIBGR","6BV0 - RPM-Bengkulu"],["BNICJR","6CD0 - RPM-Stabat"],["BNICLG","6CE0 - RPM-Duri"],["BNIGRT","6CH0 - RPM-Sanggau"],["BNIJKT","6CI0 - RPM-Banda Aceh"],["BNIKRW","6CL0 - RPM-Pangkal Pinang"],["BNISUB","6DN0 - RPM-Solok"],["BRIBDG","BRI Bandung"],["BRIBGR","BRI Bogor"],["BRIBKS","BRI Bekasi"],["BRICIM","BRI Cimahi"],["BRICJR","BRI Cianjur"],["BRICLG","BRI Cilegon"],["BRIGRT","BRI Garut"],["BRIJKT","BRI Jakarta"],["BRIKRW","BRI Karawang"],["BRILEB","BRI Lebak"],["BRISER","BRI Serang"],["BRISKB","BRI Sukabumi"],["BRISMD","BRI Sumedang"],["BRISUB","BRI Subang"],["BRITGR","BRI Tangerang"],["DBSJKT","DBS Jakarta"],["DKIJKT","Bank DKI Jakarta"],["HSBJKT","HSBC Jakarta"],["MANBGR","Mandiri Bogor"],["MANJKT","Mandiri Jakarta"],["MANSER","Mandiri Serang"],["MANSKB","Mandiri Sukabumi"],["MASBDG","MAS Bandung"],["MASBGR","MAS Bogor"],["MASBKS","MAS Bekasi"],["MASCIM","MAS Cimahi"],["MASCJR","MAS Cianjur"],["MASCLG","MAS Cilegon"],["MASGRT","MAS Garut"],["MASJKT","MAS Jakarta"],["MASKEB","MAS Kebumen"],["MASKRW","MAS Karawang"],["MASLEB","MAS Lebak"],["MASSER","MAS Serang"],["MASSKB","MAS Sukabumi"],["MASSMD","MAS Sumedang"],["MASSUB","MAS Subang"],["MASTGR","MAS Tangerang"]],"salesman_bp_type_employee":[["ZD01","Sales Employee"],["ZD07","Motorist"],["ZC07","Merchandiser"],["ZC02","Contract Salesman"],["ZD08","Canvasser"]],"bp_type_3rd_party":[["ZB01","3rd Party BP"],["ZB02","3rd Party Customer"],["ZB03","3rd Party Vendor"],["ZB04","3rd Party Carrier"],["ZB05","3rd Party Direct Liner"],["ZB06","3rd Party Trading Partner"],["ZC01","Contact Person Customer"],["ZC02","Contract Salesman"],["ZC03","Driver (3rd Party)"],["ZC04","Helper (3rd Party)"],["ZC05","Coordinator Deliveryman (3rd Party)"],["ZC06","Contact Person Vendor"],["ZC07","Merchandiser"],["ZC08","Picker Packer (3rd Party)"],["ZC09","Operator (3rd Party)"],["ZD01","Sales Employee"],["ZD02","Driver (Employee)"],["ZD03","Helper (Employee)"],["ZD04","Coordinator Deliveryman (Employee)"],["ZD05","Picker Packer (Employee)"],["ZD06","Operator (Employee)"],["ZD07","Motorist"],["ZD08","Canvasser"],["ZD09","Other Employee"],["ZE01","Event"],["ZE02","Sampling"],["ZE03","Vending Machine"],["ZJ01","Customer Hierarchy"]],"visit_category":[["F1","Visit Schedule 1 time month"],["F2","Visit Schedule 2 time per month"],["F4","Visit Schedule 4 time per month"],["F8","Visit schedule 8 time per month"]],"visit_type":[["01","01 Visit"],["02","02 Collect"],["03","03 Visit & Collect"],["04","04 Invoice Exchange"]],"visit_schedule":[["W1-M","Week1-Mon"],["W1-T","Week1-Tue"],["W1-W","Week1-Wed"],["W1-Th","Week1-Thu"],["W1-F","Week1-Fri"],["W1-Sat","Week1-Sat"],["W2-M","Week2-Mon"],["W2-T","Week2-Tue"],["W2-W","Week2-Wed"],["W2-Th","Week2-Thu"],["W2-F","Week2-Fri"],["W2-Sat","Week2-Sat"],["W3-M","Week3-Mon"],["W3-T","Week3-Tue"],["W3-W","Week3-Wed"],["W3-Th","Week3-Thu"],["W3-F","Week3-Fri"],["W3-Sat","Week3-Sat"],["W4-M","Week4-Mon"],["W4-T","Week4-Tue"],["W4-W","Week4-Wed"],["W4-Th","Week4-Thu"],["W4-F","Week4-Fri"],["W4-Sat","Week4-Sat"]],"relationship":[["Keluarga Inti",""],["Saudara Kandung",""],["Sepupu",""],["Paman / Bibi",""],["Keponakan",""],["Kakek / Nenek",""],["Mertua",""],["Ipar",""],["Pasangan / Suami / Istri",""],["Tunangan",""],["Teman",""],["Rekan Kerja",""],["Tetangga",""],["Partner Bisnis",""],["Lainnya",""],["Tidak Diketahui",""]]};
+
+// Schemas mirror the original xlsx upload templates EXACTLY (column order matters)
+const EXTEND_SCHEMAS = {
+  extend_bank: {
+    title: 'Extend Bank Data (CR16 / ZB03)',
+    subtitle: 'Tambah / ubah data bank untuk BP existing. Output xlsx mengikuti template upload-change-data-template-for-CR-CR16-BPTypeId-ZB03.',
+    sheetName: 'Upload',
+    fileBase: 'upload-change-data-CR16-BankData',
+    columns: [
+      { key: 'bp_number_source', label: 'BP Number Source', type: 'text',   mandatory: true,  hint: '8-10 digit BP number existing' },
+      { key: 'account_holder',   label: 'Account Holder',   type: 'text',   mandatory: true,  hint: 'Nama persis di buku tabungan' },
+      { key: 'bank_acc',         label: 'Bank Acc',         type: 'text',   mandatory: true,  hint: 'Nomor rekening, angka saja' },
+      { key: 'bank_country',     label: 'Bank Country',     type: 'select', mandatory: true,  lov: 'bank_country', hint: 'Default ID untuk Indonesia' },
+      { key: 'bank_key',         label: 'Bank Key',         type: 'select', mandatory: true,  lov: 'bank_key',     hint: 'Pilih dari master Bank Key' },
+      { key: 'iban',             label: 'IBAN',             type: 'text',   mandatory: false, hint: 'Optional, untuk bank luar negeri' },
+      { key: 'notes',            label: 'Notes',            type: 'text',   mandatory: false },
+      { key: 'valid_from',       label: 'Valid From',       type: 'date',   mandatory: true },
+      { key: 'valid_to',         label: 'Valid To',         type: 'date',   mandatory: true,  hint: 'Default 9999-12-31 jika tanpa expiry' },
+      { key: 'phone',            label: 'Phone',            type: 'text',   mandatory: false, hint: '+62...' },
+    ],
+  },
+  extend_rolling_3rd: {
+    title: 'Extend Rolling & Schedule Kunjungan — 3rd Party Customer',
+    subtitle: 'Mapping salesman 3rd party (ZB/ZC/ZD/ZE) ke customer + jadwal kunjungan. Output xlsx mengikuti template upload-rolling-sales-template.',
+    sheetName: 'Rolling Sales',
+    fileBase: 'upload-rolling-3rdParty',
+    columns: [
+      { key: 'customer_id',       label: 'Customer ID',       type: 'text',   mandatory: true,  hint: '8-10 digit BP customer' },
+      { key: 'relationship',      label: 'Relationship',      type: 'select', mandatory: true,  lov: 'relationship',         hint: 'Hubungan salesman ↔ customer' },
+      { key: 'salesman_id',       label: 'Salesman ID',       type: 'text',   mandatory: true,  hint: 'BP ID salesman 3rd party' },
+      { key: 'salesman_bp_type',  label: 'Salesman BP Type',  type: 'select', mandatory: true,  lov: 'bp_type_3rd_party',    hint: 'BP Type 3rd party (ZB/ZC/ZD/ZE/ZJ)' },
+      { key: 'valid_from',        label: 'Valid From',        type: 'date',   mandatory: true },
+      { key: 'valid_to',          label: 'Valid To',          type: 'date',   mandatory: true },
+      { key: 'visit_category',    label: 'Visit Category',    type: 'select', mandatory: true,  lov: 'visit_category',       hint: 'Frequency: F1/F2/F4/F8' },
+      { key: 'visit_type',        label: 'Visit Type',        type: 'select', mandatory: true,  lov: 'visit_type',           hint: '01-04 (Visit/Collect/etc)' },
+      { key: 'schedule_visit',    label: 'Schedule Visit',    type: 'multi',  mandatory: true,  lov: 'visit_schedule',       hint: 'Pilih hari & minggu (multi)' },
+      { key: 'visit_valid_from',  label: 'Visit Valid From',  type: 'date',   mandatory: true },
+      { key: 'visit_valid_to',    label: 'Visit Valid To',    type: 'date',   mandatory: true },
+    ],
+  },
+  extend_rolling_emp: {
+    title: 'Extend Rolling & Schedule Kunjungan — Sales Employee',
+    subtitle: 'Mapping sales employee (ZD01/ZD07/ZC02/ZC07/ZD08) ke customer + jadwal kunjungan. Output xlsx mengikuti template upload-rolling-sales-template.',
+    sheetName: 'Rolling Sales',
+    fileBase: 'upload-rolling-SalesEmployee',
+    columns: [
+      { key: 'customer_id',       label: 'Customer ID',       type: 'text',   mandatory: true,  hint: '8-10 digit BP customer' },
+      { key: 'relationship',      label: 'Relationship',      type: 'select', mandatory: true,  lov: 'relationship',           hint: 'Hubungan salesman ↔ customer' },
+      { key: 'salesman_id',       label: 'Salesman ID',       type: 'text',   mandatory: true,  hint: 'NIK / BP ID employee' },
+      { key: 'salesman_bp_type',  label: 'Salesman BP Type',  type: 'select', mandatory: true,  lov: 'salesman_bp_type_employee', hint: 'ZD01/ZD07/ZC02/ZC07/ZD08' },
+      { key: 'valid_from',        label: 'Valid From',        type: 'date',   mandatory: true },
+      { key: 'valid_to',          label: 'Valid To',          type: 'date',   mandatory: true },
+      { key: 'visit_category',    label: 'Visit Category',    type: 'select', mandatory: true,  lov: 'visit_category' },
+      { key: 'visit_type',        label: 'Visit Type',        type: 'select', mandatory: true,  lov: 'visit_type' },
+      { key: 'schedule_visit',    label: 'Schedule Visit',    type: 'multi',  mandatory: true,  lov: 'visit_schedule' },
+      { key: 'visit_valid_from',  label: 'Visit Valid From',  type: 'date',   mandatory: true },
+      { key: 'visit_valid_to',    label: 'Visit Valid To',    type: 'date',   mandatory: true },
+    ],
+  },
+};
+
+STATE.extendMode = null;
+STATE.extendRows = [];
+
+function enterExtendMode(mode) {
+  STATE.extendMode = mode;
+  STATE.extendRows = [makeEmptyExtendRow(mode)];
+  $('#step-mode').classList.add('hidden');
+  $('#step-picker').classList.add('hidden');
+  $('#step-form').classList.add('hidden');
+  $('#step-extend').classList.remove('hidden');
+  const sch = EXTEND_SCHEMAS[mode];
+  $('#extendTitle').textContent = sch.title;
+  $('#extendSubtitle').textContent = sch.subtitle;
+  renderExtendTable();
+}
+
+function makeEmptyExtendRow(mode) {
+  const row = {};
+  EXTEND_SCHEMAS[mode].columns.forEach(c => { row[c.key] = (c.type === 'multi') ? [] : ''; });
+  if (mode === 'extend_bank') row.bank_country = 'ID';
+  return row;
+}
+
+function renderExtendTable() {
+  const sch = EXTEND_SCHEMAS[STATE.extendMode];
+  const thead = $('#extTable thead');
+  const tbody = $('#extTable tbody');
+  thead.innerHTML = '<tr>' + sch.columns.map(c =>
+    `<th class="px-2 py-2 text-left border-b border-slate-200 font-semibold whitespace-nowrap">${esc(c.label)}${c.mandatory ? ' <span class="text-red-600">*</span>' : ''}</th>`
+  ).join('') + '<th class="px-2 py-2 border-b border-slate-200"></th></tr>';
+
+  tbody.innerHTML = '';
+  STATE.extendRows.forEach((row, ri) => {
+    const tr = document.createElement('tr');
+    tr.className = 'border-b border-slate-100 hover:bg-slate-50';
+    sch.columns.forEach(c => {
+      const td = document.createElement('td');
+      td.className = 'px-1 py-1 align-top';
+      td.appendChild(buildExtendCell(c, row, ri));
+      tr.appendChild(td);
+    });
+    const tdDel = document.createElement('td');
+    tdDel.className = 'px-1 py-1 text-center';
+    tdDel.innerHTML = '<button class="text-red-600 hover:text-red-800 text-lg" title="Hapus row">×</button>';
+    tdDel.querySelector('button').addEventListener('click', () => {
+      if (STATE.extendRows.length === 1) { alert('Minimal 1 row.'); return; }
+      STATE.extendRows.splice(ri, 1); renderExtendTable();
+    });
+    tr.appendChild(tdDel);
+    tbody.appendChild(tr);
+  });
+}
+
+function buildExtendCell(col, row, ri) {
+  if (col.type === 'select') {
+    const sel = document.createElement('select');
+    sel.className = 'border border-slate-300 rounded px-1.5 py-1 text-xs bg-white min-w-[140px]';
+    sel.title = col.hint || '';
+    sel.innerHTML = '<option value="">— pilih —</option>' +
+      (BP_DROPDOWNS[col.lov] || []).map(([v, d]) =>
+        `<option value="${esc(v)}"${row[col.key] === v ? ' selected' : ''}>${esc(v)}${d ? ' — ' + esc(d) : ''}</option>`
+      ).join('');
+    sel.addEventListener('change', e => { row[col.key] = e.target.value; });
+    return sel;
+  }
+  if (col.type === 'multi') {
+    // Compact multi-select with checkbox dropdown
+    const wrap = document.createElement('div');
+    wrap.className = 'relative';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'border border-slate-300 rounded px-1.5 py-1 text-xs bg-white min-w-[160px] text-left';
+    const updateLabel = () => { btn.textContent = (row[col.key] || []).length ? (row[col.key].join(', ')) : '— pilih (multi) —'; };
+    updateLabel();
+    const panel = document.createElement('div');
+    panel.className = 'hidden absolute z-30 mt-1 bg-white border border-slate-300 rounded shadow-lg p-2 max-h-56 overflow-y-auto';
+    panel.style.minWidth = '180px';
+    (BP_DROPDOWNS[col.lov] || []).forEach(([v, d]) => {
+      const lbl = document.createElement('label');
+      lbl.className = 'flex items-center gap-1.5 text-xs py-0.5 cursor-pointer hover:bg-slate-50 px-1';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = (row[col.key] || []).includes(v);
+      cb.addEventListener('change', () => {
+        if (!Array.isArray(row[col.key])) row[col.key] = [];
+        if (cb.checked) row[col.key].push(v);
+        else row[col.key] = row[col.key].filter(x => x !== v);
+        updateLabel();
+      });
+      lbl.appendChild(cb);
+      const txt = document.createElement('span');
+      txt.textContent = v + (d ? ' — ' + d : '');
+      lbl.appendChild(txt);
+      panel.appendChild(lbl);
+    });
+    btn.addEventListener('click', e => { e.stopPropagation(); panel.classList.toggle('hidden'); });
+    document.addEventListener('click', () => panel.classList.add('hidden'));
+    wrap.appendChild(btn);
+    wrap.appendChild(panel);
+    return wrap;
+  }
+  // text / date
+  const inp = document.createElement('input');
+  inp.type = col.type === 'date' ? 'date' : 'text';
+  inp.className = 'border border-slate-300 rounded px-1.5 py-1 text-xs min-w-[120px]';
+  inp.value = row[col.key] || '';
+  inp.title = col.hint || '';
+  if (col.hint && col.type !== 'date') inp.placeholder = col.hint;
+  inp.addEventListener('input', e => { row[col.key] = e.target.value; });
+  return inp;
+}
+
+function downloadExtendTemplate() {
+  const sch = EXTEND_SCHEMAS[STATE.extendMode];
+  const headers = sch.columns.map(c => c.label);
+  const aoa = [headers];
+  STATE.extendRows.forEach(row => {
+    aoa.push(sch.columns.map(c => {
+      const v = row[c.key];
+      if (Array.isArray(v)) return v.join(',');  // schedule_visit -> "W1-M,W1-W"
+      if (c.type === 'date' && v) return v;       // already YYYY-MM-DD
+      return v ?? '';
+    }));
+  });
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  XLSX.utils.book_append_sheet(wb, ws, sch.sheetName);
+  const dt = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, `${sch.fileBase}_${dt}.xlsx`);
+}
+
+function validateExtendLocal() {
+  const sch = EXTEND_SCHEMAS[STATE.extendMode];
+  const errors = [];
+  STATE.extendRows.forEach((row, i) => {
+    sch.columns.forEach(c => {
+      const v = row[c.key];
+      const empty = (v == null || v === '' || (Array.isArray(v) && v.length === 0));
+      if (c.mandatory && empty) errors.push(`Row ${i+1}: ${c.label} wajib diisi`);
+      // Format checks
+      if (!empty && c.type === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+        errors.push(`Row ${i+1}: ${c.label} format harus YYYY-MM-DD`);
+      }
+      if (!empty && c.key === 'phone' && !/^\+?[0-9 \-]{6,}$/.test(v)) {
+        errors.push(`Row ${i+1}: Phone format invalid`);
+      }
+      if (!empty && (c.key === 'bp_number_source' || c.key === 'customer_id' || c.key === 'salesman_id') && !/^[0-9]{6,12}$/.test(v)) {
+        errors.push(`Row ${i+1}: ${c.label} harus 6-12 digit angka`);
+      }
+    });
+    // Cross-field: valid_from <= valid_to
+    if (row.valid_from && row.valid_to && row.valid_from > row.valid_to) {
+      errors.push(`Row ${i+1}: Valid From > Valid To`);
+    }
+    if (row.visit_valid_from && row.visit_valid_to && row.visit_valid_from > row.visit_valid_to) {
+      errors.push(`Row ${i+1}: Visit Valid From > Visit Valid To`);
+    }
+  });
+  return errors;
+}
+
+async function validateExtendWithYeni() {
+  const localErrors = validateExtendLocal();
+  $('#extValidationSummary').textContent = localErrors.length
+    ? `❌ ${localErrors.length} masalah lokal — lihat Yeni untuk detail.`
+    : `✅ Lokal OK (${STATE.extendRows.length} row). Yeni sedang review semantik...`;
+
+  openYeni();
+  addYeniMessage('user', `Tolong validasi ${STATE.extendRows.length} row di mode ${STATE.extendMode}.`);
+  addYeniTyping();
+  try {
+    const sch = EXTEND_SCHEMAS[STATE.extendMode];
+    const sys = `Kamu adalah Yeni, validator data SAP MDG Extend untuk Wings Group. Jawab ringkas Bahasa Indonesia (maks 8 kalimat).
+
+Mode: ${STATE.extendMode} — ${sch.title}
+Kolom template (urutan persis output xlsx):
+${sch.columns.map(c => `  - ${c.label} (${c.key}): ${c.type}, ${c.mandatory ? 'WAJIB' : 'opsional'}${c.lov ? `, LOV=${c.lov}` : ''}${c.hint ? ', hint: ' + c.hint : ''}`).join('\n')}
+
+Tugas:
+1. Cek format & mandatory tiap field
+2. Cek konsistensi: BP Number / Customer ID / Salesman ID harus angka 6-12 digit
+3. Cek date: valid_from <= valid_to, format YYYY-MM-DD
+4. Untuk Bank Data: Bank Country & Bank Key harus konsisten (mis. ID + BCAxxx)
+5. Untuk Rolling: Salesman BP Type harus sesuai mode (employee Z-codes vs 3rd party Z-codes)
+6. Schedule Visit harus konsisten dengan Visit Category (F1=1x/bulan jadi max 1 hari, F8=8x/bulan jadi 2 hari/minggu, dll)
+7. Sebutkan masalah per row dengan format "Row N: <masalah>"
+
+Validasi LOKAL sudah menemukan:
+${localErrors.length ? localErrors.map(e => '  - ' + e).join('\n') : '  (tidak ada error lokal)'}
+
+Konfirmasi error lokal di atas + cari masalah TAMBAHAN yang lebih semantik.`;
+
+    const userMsg = `Validasi data berikut:\n\n${JSON.stringify(STATE.extendRows, null, 2)}`;
+    const reply = await callYeniWorker(sys, [{role:'user', content: userMsg}]);
+    removeYeniTyping();
+    addYeniMessage('assistant', reply);
+  } catch (err) {
+    removeYeniTyping();
+    addYeniMessage('assistant', '⚠️ ' + err.message + '\n\nValidasi lokal:\n' + (localErrors.length ? localErrors.map(e => '• ' + e).join('\n') : '✅ tidak ada error lokal.'));
+  }
+}
+
+function backToModePicker() {
+  $('#step-extend').classList.add('hidden');
+  $('#step-form').classList.add('hidden');
+  $('#step-picker').classList.add('hidden');
+  $('#step-mode').classList.remove('hidden');
+  STATE.extendMode = null;
+  STATE.extendRows = [];
+}
+
+// Wire mode picker + extend buttons
+function bindExtendUi() {
+  document.querySelectorAll('.mode-card').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const mode = btn.getAttribute('data-mode');
+      if (mode === 'create') {
+        $('#step-mode').classList.add('hidden');
+        $('#step-picker').classList.remove('hidden');
+      } else {
+        enterExtendMode(mode);
+      }
+    });
+  });
+  $('#btnExtAddRow')?.addEventListener('click', () => {
+    STATE.extendRows.push(makeEmptyExtendRow(STATE.extendMode));
+    renderExtendTable();
+  });
+  $('#btnExtDownload')?.addEventListener('click', downloadExtendTemplate);
+  $('#btnExtValidate')?.addEventListener('click', validateExtendWithYeni);
+  $('#btnExtBack')?.addEventListener('click', backToModePicker);
+}
+
+// ⚠️ HARDCODED WORKER URL — edit this once after deploy, then never asked again
+const DEFAULT_WORKER_URL = 'https://formbp-mdg.paskalis-glennardo.workers.dev/';
+
+// Patch boot to register extend bindings + show email gate / mode picker
+const _origBoot = boot;
+boot = async function() {
+  await _origBoot();
+  bindExtendUi();
+
+  // Force default worker URL if not set or still placeholder
+  if (!STATE.settings.workerUrl || STATE.settings.workerUrl.includes('xxx.workers.dev')) {
+    STATE.settings.workerUrl = DEFAULT_WORKER_URL;
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(STATE.settings));
+  }
+
+  // Hide BP picker (boot may have shown it)
+  $('#step-picker').classList.add('hidden');
+
+  // If email setup not done, force gate
+  const needsEmail = !STATE.settings.submitEmail || !STATE.settings.ccEmail;
+  if (needsEmail && $('#step-form').classList.contains('hidden')) {
+    $('#step-mode').classList.add('hidden');
+    $('#step-email-setup').classList.remove('hidden');
+    // Pre-fill if any
+    $('#gateSubmitEmail').value = STATE.settings.submitEmail || '';
+    $('#gateCcEmail').value = STATE.settings.ccEmail || '';
+    $('#gateRequestor').value = STATE.settings.requestor || '';
+  } else if ($('#step-form').classList.contains('hidden')) {
+    $('#step-mode').classList.remove('hidden');
+  } else {
+    $('#step-mode').classList.add('hidden');
+  }
+
+  // Wire gate button
+  $('#btnGateContinue')?.addEventListener('click', () => {
+    const se = $('#gateSubmitEmail').value.trim();
+    const cc = $('#gateCcEmail').value.trim();
+    const rq = $('#gateRequestor').value.trim();
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const errEl = $('#gateError');
+    if (!re.test(se)) { errEl.textContent = 'Email tujuan submit invalid.'; errEl.classList.remove('hidden'); return; }
+    if (!re.test(cc)) { errEl.textContent = 'CC email invalid.'; errEl.classList.remove('hidden'); return; }
+    errEl.classList.add('hidden');
+    STATE.settings.submitEmail = se;
+    STATE.settings.ccEmail = cc;
+    STATE.settings.requestor = rq;
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(STATE.settings));
+    $('#step-email-setup').classList.add('hidden');
+    $('#step-mode').classList.remove('hidden');
+  });
+};
+
+/* ============================================================
+   START
+   ============================================================ */
+boot();
+</script>
+</body>
+</html>
